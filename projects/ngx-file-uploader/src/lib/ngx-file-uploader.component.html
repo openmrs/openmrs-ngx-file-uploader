@@ -58,7 +58,7 @@
       <button *ngIf="UploadCaptions" type="button" (click)="upload()" class="button pull-right">
           <span class="glyphicon glyphicon-upload"></span> Upload Files
       </button>
-      <button *ngIf="!pdfAvailable && fileUpload || liveCamera || merge" type="button" [disabled]="!urls[1]" (click)="MergeImages()"  title="merge the images as pages in one pdf document"  class="button">
+      <button *ngIf="!pdfAvailable && fileUpload || liveCamera || merge" type="button" [disabled]="!urls[1]" (click)="mergeImages()"  title="merge the images as pages in one pdf document"  class="button">
         <span class="glyphicon glyphicon-upload"></span> Merge Files
       </button>
   </div>

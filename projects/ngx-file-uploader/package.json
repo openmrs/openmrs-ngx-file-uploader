@@ -1,6 +1,6 @@
 {
   "name": "ngx-file-uploader-lib",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "peerDependencies": {
     "@angular/common": "^6.1.0",
     "@angular/core": "^6.1.0",
