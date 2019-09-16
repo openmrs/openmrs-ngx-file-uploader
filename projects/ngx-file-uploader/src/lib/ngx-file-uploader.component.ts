@@ -31,6 +31,7 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit {
   public fileList = new Array<any>();
   public fileType: string;
   public message = '';
+  public pdfCreated = false;
   public messageType = '';
   public liveCamera = false;
   public pdfAvailable = false;
@@ -228,8 +229,10 @@ public messageViewTimeout () {
   }
 
   public upload() {
-    if (this.formEntry && this.pdfAvailable === false) {
-     this.mergeImages();
+    if (!this.pdfCreated) {
+      if (this.formEntry && this.pdfAvailable === false) {
+        this.mergeImages();
+       }
     }
     this.uploadData.emit(this.fileList);
     this.back();
@@ -275,6 +278,7 @@ public messageViewTimeout () {
     this.urls.push(payload);
     this.singleFile = false;
     this.UploadCaptions = true;
+    this.pdfCreated = true;
 
   }
   public delete(urls: any) {
