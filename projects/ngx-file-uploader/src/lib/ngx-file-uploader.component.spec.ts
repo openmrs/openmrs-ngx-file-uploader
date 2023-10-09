@@ -1,4 +1,4 @@
-import { async, ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 
 import { NgxFileUploaderComponent } from './ngx-file-uploader.component';
 
@@ -6,11 +6,10 @@ describe('NgxFileUploaderComponent', () => {
   let component: NgxFileUploaderComponent;
   let fixture: ComponentFixture<NgxFileUploaderComponent>;
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
-      declarations: [ NgxFileUploaderComponent ]
-    })
-    .compileComponents();
+      declarations: [NgxFileUploaderComponent],
+    }).compileComponents();
   }));
 
   beforeEach(() => {

@@ -1,0 +1,114 @@
+name: OpenMRS CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  release:
+    types:
+      - created
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Cache dependencies
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: "**/node_modules"
+          key: ${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
+
+      - name: Install dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: yarn install --frozen-lockfile
+
+      - name: Run lint
+        run: yarn turbo lint --color
+
+      - name: Run tests
+        run: yarn turbo test --color
+
+      - name: Run build
+        run: yarn turbo build:lib --color --concurrency=5
+
+  pre_release:
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ github.event_name == 'push' }}
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Cache dependencies
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: "**/node_modules"
+          key: ${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
+
+      - name: Install dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: yarn install --frozen-lockfile
+
+      - name: Version
+        run: export NEW_VERSION="$(node -e "console.log(require('semver').inc(require('./package.json').version, 'patch'))")-pre.${{ github.run_number }}" && yarn version --new-version $NEW_VERSION --no-git-tag-version && cd projects/ngx-file-uploader && yarn version --new-version $NEW_VERSION --no-git-tag-version
+
+      - name: Build
+        run: yarn turbo build:lib --color --concurrency=5
+
+      - run: git config user.email "info@openmrs.org" && git config user.name "OpenMRS CI"
+      - run: git add . && git commit -m "Prerelease version" --no-verify
+
+      - name: Publish pre-release
+        run: yarn publish dist/ngx-file-uploader --tag next --access public
+        env:
+          NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ngx-file-uploader
+          path: |
+            dist/ngx-file-uploader/*.*
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ github.event_name == 'release' }}
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Cache dependencies
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: "**/node_modules"
+          key: ${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
+
+      - name: Install dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: yarn install --frozen-lockfile
+
+      - name: Build
+        run: yarn turbo build:lib --color --concurrency=5
+
+      - name: Publish release
+        run: yarn publish dist/ngx-file-uploader --tag latest --access public

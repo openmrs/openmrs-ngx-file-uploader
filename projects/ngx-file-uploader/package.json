@@ -1,11 +1,7 @@
 {
   "name": "ngx-file-uploader",
-  "version": "0.0.15",
-  "peerDependencies": {
-    "@angular/common": "^6.1.0",
-    "@angular/core": "^6.1.0",
-    "jspdf": "^1.5.3",
-    "ngx-webcam": "^0.2.2",
-    "ngx-bootstrap": "next"
-  }
+  "dependencies": {
+    "tslib": "^2.0.0"
+  },
+  "version": "1.0.0"
 }

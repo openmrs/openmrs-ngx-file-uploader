@@ -1,9 +1,14 @@
 import {
-  Component, OnInit, Input, forwardRef,
-  OnChanges, Output, EventEmitter, ɵConsole
+  Component,
+  OnInit,
+  Input,
+  forwardRef,
+  OnChanges,
+  Output,
+  EventEmitter,
+  ɵConsole,
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
-// import * as pdfMake from 'pdfmake/build/pdfmake';
 import jsPDF from 'jspdf';
 import { Subject } from 'rxjs';
 import { Observable } from 'rxjs';
@@ -14,16 +19,17 @@ const noop = () => {
 };
 
 @Component({
-  selector: 'lib-file-uploader',
+  selector: 'lib-ngx-file-uploader',
   styleUrls: ['./ngx-file-uploader.component.scss'],
   templateUrl: './ngx-file-uploader.component.html',
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,
       // tslint:disable-next-line:no-forward-ref
-      useExisting: forwardRef(() => NgxFileUploaderComponent), multi: true
-    }
-  ]
+      useExisting: forwardRef(() => NgxFileUploaderComponent),
+      multi: true,
+    },
+  ],
 })
 export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit {
   public urls = new Array<any>();
@@ -67,7 +73,9 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit {
   // webcam snapshot trigger
   private trigger: Subject<void> = new Subject<void>();
   // switch to next / previous / specific webcam; true/false: forward/backwards, string: deviceId
-  private nextWebcam: Subject<boolean | string> = new Subject<boolean | string>();
+  private nextWebcam: Subject<boolean | string> = new Subject<
+    boolean | string
+  >();
   public uploading = false;
   // The internal data model
   private innerValue: any = '';
@@ -77,19 +85,20 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit {
   private onTouchedCallback: () => void = noop;
   private onChangeCallback: (_: any) => void = noop;
 
-
   public ngOnInit() {
     if (this.singleFile) {
       this.multiple = false;
       this.both = false;
     }
-    if (window.screen.width <= 692) { // 768px portrait
+    if (window.screen.width <= 692) {
+      // 768px portrait
       this.mobile = true;
     }
-    WebcamUtil.getAvailableVideoInputs()
-      .then((mediaDevices: MediaDeviceInfo[]) => {
+    WebcamUtil.getAvailableVideoInputs().then(
+      (mediaDevices: MediaDeviceInfo[]) => {
         this.multipleWebcamsAvailable = mediaDevices && mediaDevices.length > 1;
-      });
+      }
+    );
   }
 
   // get accessor
@@ -130,9 +139,9 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit {
     const files = event.srcElement.files;
     this.uploading = true;
     // const fileToLoad = files;
-if (this.fieType === 'liveCamera') {
-this.UploadCaptions = true;
-}
+    if (this.fieType === 'liveCamera') {
+      this.UploadCaptions = true;
+    }
     if (files) {
       for (const file of files) {
         const fileReader = new FileReader();
@@ -154,7 +163,7 @@ this.UploadCaptions = true;
               data,
               id: this.urls.length + 1,
               name: name,
-              size: fileSize
+              size: fileSize,
             };
             if (!this.singleFile) {
               this.urls.push(payload);
@@ -167,14 +176,13 @@ this.UploadCaptions = true;
         };
         fileReader.readAsDataURL(file);
       }
-
     }
   }
-public messageViewTimeout () {
-  setTimeout(() => {
-    this.message = '';
-  }, 12000);
-}
+  public messageViewTimeout() {
+    setTimeout(() => {
+      this.message = '';
+    }, 12000);
+  }
   public clear() {
     this.value = '';
     this.onChangeCallback(this.value);
@@ -198,13 +206,13 @@ public messageViewTimeout () {
     this.fieType = filetype;
     if (filetype === 'image') {
       if (this.formEntry) {
-        this.message = ' Images will be merged into one pdf when uploaded in formentry';
+        this.message =
+          ' Images will be merged into one pdf when uploaded in formentry';
         this.messageType = 'danger';
         this.messageViewTimeout();
       }
       this.fileType = 'image/png, image/jpeg, image/gif';
       this.fileUpload = true;
-
     } else if (filetype === 'pdf') {
       if (this.formEntry) {
         this.multiple = false;
@@ -212,7 +220,6 @@ public messageViewTimeout () {
       this.fileType = 'application/pdf';
       this.pdfAvailable = true;
       this.fileUpload = true;
-
     } else if (filetype === 'both') {
       this.fileType = 'image/png, image/jpeg, image/gif , application/pdf';
       this.pdfAvailable = true;
@@ -223,16 +230,15 @@ public messageViewTimeout () {
     this.selectFileType = false;
     this.backButton = true;
     if (this.value) {
-     this.clear();
+      this.clear();
     }
-
   }
 
   public upload() {
     if (!this.pdfCreated) {
       if (this.formEntry && this.pdfAvailable === false) {
         this.mergeImages();
-       }
+      }
     }
     this.uploadData.emit(this.fileList);
     this.back();
@@ -242,7 +248,8 @@ public messageViewTimeout () {
     const doc = new jsPDF({ compress: true });
     doc.page = 1;
     for (let i = 0; i < this.fileList.length; i++) {
-      const imageData = this.fileList[i].data || this.fileList[i].imageAsDataUrl;
+      const imageData =
+        this.fileList[i].data || this.fileList[i].imageAsDataUrl;
       doc.addImage(imageData, 'JPG', 10, 10, 190, 270, undefined, 'FAST');
       doc.setFont('courier');
       doc.setFontType('normal');
@@ -255,7 +262,7 @@ public messageViewTimeout () {
     doc.setProperties({
       title: 'Ampath Medical Data',
       author: 'POC',
-      creator: 'AMPATH'
+      creator: 'AMPATH',
     });
     doc.deletePage(this.fileList.length + 1);
     this.fileList = [];
@@ -271,15 +278,15 @@ public messageViewTimeout () {
       this.fileList = [];
       this.urls = [];
     }
-    this.message = 'The images have been merged into one pdf, You can now upload';
+    this.message =
+      'The images have been merged into one pdf, You can now upload';
     this.messageType = 'success';
-   this.messageViewTimeout();
+    this.messageViewTimeout();
     this.fileList.push(payload);
     this.urls.push(payload);
     this.singleFile = false;
     this.UploadCaptions = true;
     this.pdfCreated = true;
-
   }
   public delete(urls: any) {
     for (let i = 0; i <= this.urls.length; i++) {
@@ -335,7 +342,6 @@ public messageViewTimeout () {
       this.urls = [];
       this.fileList = [];
       this.pushData(webcamImage);
-
     }
     this.pushData(webcamImage);
   }
@@ -357,6 +363,6 @@ public messageViewTimeout () {
   }
   public getUrl() {
     const file = this.srcUrl;
-      window.open(file, '_blank');
-}
+    window.open(file, '_blank');
+  }
 }
