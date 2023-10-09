@@ -1,5 +1,5 @@
 {
-  "name": "ngx-file-uploader",
+  "name": "@openmrs/ngx-file-uploader",
   "dependencies": {
     "tslib": "^2.0.0"
   },
