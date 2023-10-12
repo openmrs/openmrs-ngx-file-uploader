@@ -3,10 +3,8 @@ import {
   OnInit,
   Input,
   forwardRef,
-  OnChanges,
   Output,
   EventEmitter,
-  ɵConsole,
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import jsPDF from 'jspdf';
