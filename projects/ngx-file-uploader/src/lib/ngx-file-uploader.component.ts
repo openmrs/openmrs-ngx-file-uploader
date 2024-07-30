@@ -1,16 +1,15 @@
 import {
   Component,
-  OnInit,
-  Input,
-  forwardRef,
-  Output,
   EventEmitter,
+  forwardRef,
+  Input,
+  OnInit,
+  Output,
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
-import jsPDF from 'jspdf';
-import { Subject } from 'rxjs';
-import { Observable } from 'rxjs';
 import { WebcamImage, WebcamInitError, WebcamUtil } from 'ngx-webcam';
+import { Subject, Observable } from 'rxjs';
+import jsPDF from 'jspdf';
 
 const noop = () => {
   // placeholder call backs

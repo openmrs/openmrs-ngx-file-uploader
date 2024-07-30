@@ -34,9 +34,20 @@ npm-debug.log
 yarn-error.log
 testem.log
 /typings
+.eslintcache
+
+# logs
+yarn-debug.log*
+yarn-error.log*
 
 # System Files
 .DS_Store
 Thumbs.db
 
 .turbo
+
+.nx/cache
+.nx/workspace-data
+
+# Yarn Integrity file
+.yarn-integrity

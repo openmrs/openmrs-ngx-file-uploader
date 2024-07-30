@@ -13,7 +13,13 @@
         "build": {
           "builder": "@angular-devkit/build-angular:browser",
           "options": {
-            "allowedCommonJsDependencies": ["jspdf"],
+            "allowedCommonJsDependencies": [
+              "core-js",
+              "dompurify",
+              "html2canvas",
+              "raf",
+              "rgbcolor"
+            ],
             "outputPath": "dist/ngx-file-uploader-demo",
             "index": "src/index.html",
             "main": "src/main.ts",
@@ -62,24 +68,24 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
-            "browserTarget": "ngx-file-uploader-demo:build"
+            "buildTarget": "ngx-file-uploader-demo:build"
           },
           "configurations": {
             "production": {
-              "browserTarget": "ngx-file-uploader-demo:build:production"
+              "buildTarget": "ngx-file-uploader-demo:build:production"
             }
           }
         },
         "lint": {
           "builder": "@angular-eslint/builder:lint",
           "options": {
-            "lintFilePatterns": ["src/**/*.ts", "src/**/*.html"]
+            "lintFilePatterns": ["src/**/*.ts", "src/**/*.html", "src/**/css"]
           }
         },
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "browserTarget": "ngx-file-uploader-demo:build"
+            "buildTarget": "ngx-file-uploader-demo:build"
           }
         },
         "test": {
