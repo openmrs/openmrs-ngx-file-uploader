@@ -1,6 +1,6 @@
 {
   "name": "@openmrs/ngx-file-uploader",
-  "version": "0.0.15",
+  "version": "17.0.0",
   "main": "ngx-file-uploader/dist/ngx-file-uploader",
   "license": "MPL-2.0",
   "scripts": {
