@@ -12,7 +12,7 @@
     "lint": "ng lint",
     "e2e": "ng e2e",
     "prettier": "prettier --write \"**/**/*.{css,html,ts}\"",
-    "prepare": "husky install"
+    "prepare": "husky"
   },
   "dependencies": {
     "@angular/animations": "^17.3.12",
