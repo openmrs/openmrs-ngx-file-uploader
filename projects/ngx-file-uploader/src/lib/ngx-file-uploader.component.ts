@@ -6,10 +6,20 @@ import {
   OnInit,
   Output,
 } from '@angular/core';
-import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
-import { WebcamImage, WebcamInitError, WebcamUtil } from 'ngx-webcam';
+import {
+  ControlValueAccessor,
+  NG_VALUE_ACCESSOR,
+  FormsModule,
+} from '@angular/forms';
+import {
+  WebcamImage,
+  WebcamInitError,
+  WebcamUtil,
+  WebcamModule,
+} from 'ngx-webcam';
 import { Subject, Observable } from 'rxjs';
 import jsPDF from 'jspdf';
+import { CommonModule } from '@angular/common';
 
 const noop = () => {
   // placeholder call backs
@@ -22,11 +32,12 @@ const noop = () => {
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,
-      // tslint:disable-next-line:no-forward-ref
       useExisting: forwardRef(() => NgxFileUploaderComponent),
       multi: true,
     },
   ],
+  standalone: true,
+  imports: [CommonModule, FormsModule, WebcamModule],
 })
 export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit {
   public urls = new Array<any>();
@@ -243,25 +254,32 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit {
 
   public mergeImages() {
     const doc = new jsPDF({ compress: true });
-    doc.page = 1;
+    let currentPage = 1;
+
     for (let i = 0; i < this.fileList.length; i++) {
       const imageData =
         this.fileList[i].data || this.fileList[i].imageAsDataUrl;
       doc.addImage(imageData, 'JPG', 10, 10, 190, 270, undefined, 'FAST');
-      doc.setFont('courier');
-      doc.setFontType('normal');
-      doc.text(180, 290, 'page ' + doc.page);
-      doc.page++;
-      if (i < this.fileList.length) {
+      doc.setFont('courier', 'normal');
+      doc.text('page ' + currentPage, 180, 290);
+
+      if (i < this.fileList.length - 1) {
         doc.addPage();
+        currentPage++;
       }
     }
+
     doc.setProperties({
       title: 'Ampath Medical Data',
       author: 'POC',
       creator: 'AMPATH',
     });
-    doc.deletePage(this.fileList.length + 1);
+
+    // Remove the last empty page if it exists
+    if (doc.getNumberOfPages() > this.fileList.length) {
+      doc.deletePage(doc.getNumberOfPages());
+    }
+
     this.fileList = [];
     this.urls = [];
     const output = doc.output('datauristring');

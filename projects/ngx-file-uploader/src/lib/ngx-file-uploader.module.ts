@@ -6,8 +6,7 @@ import { WebcamModule } from 'ngx-webcam';
 import { NgxFileUploaderComponent } from './ngx-file-uploader.component';
 
 @NgModule({
-  imports: [CommonModule, FormsModule, WebcamModule],
-  declarations: [NgxFileUploaderComponent],
+  imports: [CommonModule, FormsModule, WebcamModule, NgxFileUploaderComponent],
   exports: [NgxFileUploaderComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })

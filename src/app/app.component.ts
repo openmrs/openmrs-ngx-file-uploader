@@ -1,9 +1,14 @@
 import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { NgxFileUploaderComponent } from '../../projects/ngx-file-uploader/src/lib/ngx-file-uploader.component';
 
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css'],
+  standalone: true,
+  imports: [CommonModule, FormsModule, NgxFileUploaderComponent],
 })
 export class AppComponent {
   public dataModel;

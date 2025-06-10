@@ -8,8 +8,13 @@ import { NgxFileUploaderModule } from 'dist/ngx-file-uploader';
 import { AppComponent } from './app.component';
 
 @NgModule({
-  declarations: [AppComponent],
-  imports: [BrowserModule, CommonModule, FormsModule, NgxFileUploaderModule],
+  imports: [
+    BrowserModule,
+    CommonModule,
+    FormsModule,
+    NgxFileUploaderModule,
+    AppComponent,
+  ],
   providers: [],
   bootstrap: [AppComponent],
 })

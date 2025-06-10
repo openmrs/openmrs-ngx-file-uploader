@@ -1,6 +1,8 @@
 import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
-
 import { NgxFileUploaderComponent } from './ngx-file-uploader.component';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { WebcamModule } from 'ngx-webcam';
 
 describe('NgxFileUploaderComponent', () => {
   let component: NgxFileUploaderComponent;
@@ -8,7 +10,12 @@ describe('NgxFileUploaderComponent', () => {
 
   beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
-      declarations: [NgxFileUploaderComponent],
+      imports: [
+        CommonModule,
+        FormsModule,
+        WebcamModule,
+        NgxFileUploaderComponent,
+      ],
     }).compileComponents();
   }));
 
