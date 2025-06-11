@@ -6,7 +6,7 @@ describe('NgxFileUploaderService', () => {
   beforeEach(() => TestBed.configureTestingModule({}));
 
   it('should be created', () => {
-    const service: NgxFileUploaderService = TestBed.get(NgxFileUploaderService);
+    const service: NgxFileUploaderService = TestBed.inject(NgxFileUploaderService);
     expect(service).toBeTruthy();
   });
 });
