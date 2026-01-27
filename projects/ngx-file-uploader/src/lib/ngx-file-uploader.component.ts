@@ -54,6 +54,7 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit {
   @Input() public singleFile: any;
   @Input() public formEntry: any;
   @Input() public srcUrl: any;
+  @Input() public pdfFileName = 'merged-images.pdf';
   public multiple = true;
   public fileUpload = false;
   public fieType: string;
@@ -242,24 +243,75 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit {
     }
   }
 
-  public upload() {
+  public async upload() {
     if (!this.pdfCreated) {
       if (this.formEntry && this.pdfAvailable === false) {
-        this.mergeImages();
+        await this.mergeImages();
       }
     }
     this.uploadData.emit(this.fileList);
     this.back();
   }
 
-  public mergeImages() {
+  private getImageDimensions(
+    dataUrl: string
+  ): Promise<{ width: number; height: number }> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      };
+      img.onerror = reject;
+      img.src = dataUrl;
+    });
+  }
+
+  public async mergeImages() {
     const doc = new jsPDF({ compress: true });
     let currentPage = 1;
+
+    // Available space on page (in mm) with margins
+    const maxWidth = 190;
+    const maxHeight = 270;
+    const marginX = 10;
+    const marginY = 10;
 
     for (let i = 0; i < this.fileList.length; i++) {
       const imageData =
         this.fileList[i].data || this.fileList[i].imageAsDataUrl;
-      doc.addImage(imageData, 'JPG', 10, 10, 190, 270, undefined, 'FAST');
+
+      // Get actual image dimensions and calculate scaled size
+      const dimensions = await this.getImageDimensions(imageData);
+      const imgAspectRatio = dimensions.width / dimensions.height;
+      const pageAspectRatio = maxWidth / maxHeight;
+
+      let imgWidth: number;
+      let imgHeight: number;
+
+      if (imgAspectRatio > pageAspectRatio) {
+        // Image is wider - fit to width
+        imgWidth = maxWidth;
+        imgHeight = maxWidth / imgAspectRatio;
+      } else {
+        // Image is taller - fit to height
+        imgHeight = maxHeight;
+        imgWidth = maxHeight * imgAspectRatio;
+      }
+
+      // Center the image on the page
+      const x = marginX + (maxWidth - imgWidth) / 2;
+      const y = marginY + (maxHeight - imgHeight) / 2;
+
+      doc.addImage(
+        imageData,
+        'JPEG',
+        x,
+        y,
+        imgWidth,
+        imgHeight,
+        undefined,
+        'FAST'
+      );
       doc.setFont('courier', 'normal');
       doc.text('page ' + currentPage, 180, 290);
 
@@ -283,8 +335,8 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit {
     this.fileList = [];
     this.urls = [];
     const output = doc.output('datauristring');
-    doc.save('Ampath Data');
-    const re = /filename=generated.pdf;/gi;
+    doc.save(this.normalizePdfFileName());
+    const re = /filename=.*?\.pdf;/gi;
     const data = output.replace(re, '');
     const payload = {
       data,
@@ -302,6 +354,17 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit {
     this.singleFile = false;
     this.UploadCaptions = true;
     this.pdfCreated = true;
+  }
+
+  private normalizePdfFileName(): string {
+    if (!this.pdfFileName) {
+      return 'merged-images.pdf';
+    }
+    const trimmed = `${this.pdfFileName}`.trim();
+    if (!trimmed) {
+      return 'merged-images.pdf';
+    }
+    return trimmed.toLowerCase().endsWith('.pdf') ? trimmed : `${trimmed}.pdf`;
   }
   public delete(urls: any) {
     for (let i = 0; i <= this.urls.length; i++) {

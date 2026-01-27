@@ -12,6 +12,7 @@
     "@angular/material": "^20.0.2",
     "@angular/platform-browser": "^20.0.2",
     "@angular/platform-browser-dynamic": "^20.0.2",
-    "@angular/router": "^20.0.2"
+    "@angular/router": "^20.0.2",
+    "jspdf": "^4.0.0"
   }
 }
