@@ -21,6 +21,9 @@ module.exports = function (config) {
       fixWebpackSourcePaths: true,
     },
     reporters: ['progress', 'kjhtml'],
+    proxies: {
+      '/_karma_webpack_/node_modules/@ibm/plex/': '/base/node_modules/@ibm/plex/',
+    },
     port: 9876,
     colors: true,
     logLevel: config.LOG_INFO,

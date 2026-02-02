@@ -1,0 +1,26 @@
+:host {
+  display: block;
+  padding: 0.5rem 1rem;
+}
+
+.demo-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  font-size: 0.875rem;
+}
+
+.demo-summary ul {
+  margin-top: 0.25rem;
+  list-style: none;
+}
+
+.demo-summary li {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  max-width: 32.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

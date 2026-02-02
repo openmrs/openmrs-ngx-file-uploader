@@ -1,7 +1,21 @@
-Image {{ dataModel }}
-<lib-ngx-file-uploader
-  [(ngModel)]="dataModel"
-  (onClear)="clear()"
-  (fileChanged)="upload()"
->
+<lib-ngx-file-uploader [(ngModel)]="dataModel" (cleared)="clear()" (uploadData)="onUpload($event)">
 </lib-ngx-file-uploader>
+
+@if (lastUploadCount) {
+  <div class="demo-summary">
+    <div>
+      <strong>Last upload:</strong> {{ lastUploadCount }}
+      {{ lastUploadLabel }}
+    </div>
+    @if (lastUploadNames.length) {
+      <div>
+        <strong>Files:</strong>
+        <ul>
+          @for (name of lastUploadNames; track name) {
+            <li>{{ name }}</li>
+          }
+        </ul>
+      </div>
+    }
+  </div>
+}
