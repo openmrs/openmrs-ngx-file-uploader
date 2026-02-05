@@ -1,0 +1,11 @@
+@use '@carbon/styles/scss/config' with (
+  $use-flexbox-grid: true,
+  $css--font-face: true,
+  $font-path: '/assets/fonts/plex'
+);
+
+@use '@carbon/styles';
+
+html {
+  @include styles.theme(styles.$white);
+}

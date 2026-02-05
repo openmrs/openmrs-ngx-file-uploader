@@ -28,8 +28,16 @@
               "src/polyfills.ts"
             ],
             "tsConfig": "src/tsconfig.app.json",
-            "assets": ["src/favicon.ico", "src/assets"],
-            "styles": ["src/styles.css"],
+            "assets": [
+              "src/favicon.ico",
+              "src/assets",
+              {
+                "glob": "**/*",
+                "input": "node_modules/@ibm/plex",
+                "output": "/assets/fonts/plex"
+              }
+            ],
+            "styles": ["src/styles.scss"],
             "scripts": [],
             "extractLicenses": false,
             "sourceMap": true,
@@ -95,9 +103,17 @@
             "polyfills": "src/polyfills.ts",
             "tsConfig": "src/tsconfig.spec.json",
             "karmaConfig": "src/karma.conf.js",
-            "styles": ["src/styles.css"],
+            "styles": ["src/styles.scss"],
             "scripts": [],
-            "assets": ["src/favicon.ico", "src/assets"]
+            "assets": [
+              "src/favicon.ico",
+              "src/assets",
+              {
+                "glob": "**/*",
+                "input": "node_modules/@ibm/plex",
+                "output": "/assets/fonts/plex"
+              }
+            ]
           }
         }
       }

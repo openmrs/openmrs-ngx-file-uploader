@@ -1,28 +1,26 @@
-import {
-  Component,
-  EventEmitter,
-  forwardRef,
-  Input,
-  OnInit,
-  Output,
-} from '@angular/core';
-import {
-  ControlValueAccessor,
-  NG_VALUE_ACCESSOR,
-  FormsModule,
-} from '@angular/forms';
-import {
-  WebcamImage,
-  WebcamInitError,
-  WebcamUtil,
-  WebcamModule,
-} from 'ngx-webcam';
-import { Subject, Observable } from 'rxjs';
-import jsPDF from 'jspdf';
 import { CommonModule } from '@angular/common';
+import { Component, EventEmitter, forwardRef, Input, OnDestroy, OnInit, Output } from '@angular/core';
+import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from '@angular/forms';
+import {
+  ButtonModule,
+  FileUploaderModule,
+  IconModule,
+  NotificationModule,
+  RadioModule,
+} from 'carbon-components-angular';
+import { Subject, Observable } from 'rxjs';
+import { WebcamImage, WebcamInitError, WebcamUtil, WebcamModule } from 'ngx-webcam';
+import jsPDF from 'jspdf';
 
-const noop = () => {
-  // placeholder call backs
+const noop = () => {};
+
+type SelectedFileType = 'image' | 'pdf' | 'webcam' | '';
+
+export type FilePayload = {
+  data: string | ArrayBuffer | null;
+  id: number;
+  name: string;
+  size: number;
 };
 
 @Component({
@@ -37,225 +35,207 @@ const noop = () => {
     },
   ],
   standalone: true,
-  imports: [CommonModule, FormsModule, WebcamModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    WebcamModule,
+    ButtonModule,
+    FileUploaderModule,
+    IconModule,
+    NotificationModule,
+    RadioModule,
+  ],
 })
-export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit {
-  public urls = new Array<any>();
-  public selectFileType = true;
-  public fileList = new Array<any>();
-  public fileType: string;
+export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, OnDestroy {
+  public selectedItems: Array<FilePayload | WebcamImage> = [];
+  public showTypeSelector = true;
+  public uploadQueue: Array<FilePayload | WebcamImage> = [];
+  public acceptedMimeTypes = '';
   public message = '';
   public pdfCreated = false;
-  public messageType = '';
-  public liveCamera = false;
-  public pdfAvailable = false;
+  public notificationKind: 'danger' | 'success' | 'warning' | '' = '';
+  public webcamMode = false;
+  public hasPdfSelection = false;
   public mobile = false;
-  public UploadCaptions = false;
-  @Input() public singleFile: any;
-  @Input() public formEntry: any;
-  @Input() public srcUrl: any;
+  public showUploadActions = false;
+  @Input() public singleFile = false;
+  @Input() public formEntry = false;
+  @Input() public srcUrl = '';
   @Input() public pdfFileName = 'merged-images.pdf';
-  public multiple = true;
-  public fileUpload = false;
-  public fieType: string;
-  public both = true;
-  public merge = false;
-  public backButton = false;
-  @Input() public source: any;
-  @Output() public fileChanged: EventEmitter<any> = new EventEmitter();
-  @Output() public uploadData: EventEmitter<any> = new EventEmitter();
-  @Output() public _onClear: EventEmitter<any> = new EventEmitter();
-  public _imagePath: string;
+  public allowMultiple = true;
+  public showFileUploader = false;
+  public selectedFileType: SelectedFileType = '';
+  public showBackButton = false;
+  @Input() public source: string | null = null;
+  @Output() public fileChanged: EventEmitter<FilePayload> = new EventEmitter();
+  @Output()
+  public uploadData: EventEmitter<Array<FilePayload | WebcamImage>> = new EventEmitter();
+  @Output() public cleared: EventEmitter<void> = new EventEmitter();
   public showWebcam = true;
   public allowCameraSwitch = true;
   public multipleWebcamsAvailable = false;
-  public deviceId: string;
-  public videoOptions: MediaTrackConstraints = {
-    // width: {ideal: 1024},
-    // height: {ideal: 576}
-  };
+  public deviceId = '';
+  public videoOptions: MediaTrackConstraints = {};
   public errors: WebcamInitError[] = [];
 
-  // latest snapshot
-  public webcamImage: WebcamImage = null;
+  public webcamImage: WebcamImage | null = null;
 
-  // webcam snapshot trigger
   private trigger: Subject<void> = new Subject<void>();
-  // switch to next / previous / specific webcam; true/false: forward/backwards, string: deviceId
-  private nextWebcam: Subject<boolean | string> = new Subject<
-    boolean | string
-  >();
+  private nextWebcam: Subject<boolean | string> = new Subject<boolean | string>();
   public uploading = false;
-  // The internal data model
-  private innerValue: any = '';
+  public carbonFiles = new Set<unknown>();
+  private innerValue: string | null = '';
+  private messageTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private filePayloadCache = new Map<string, FilePayload>();
+  private readGeneration = 0;
 
-  // Placeholders for the callbacks which are later providesd
-  // by the Control Value Accessor
   private onTouchedCallback: () => void = noop;
-  private onChangeCallback: (_: any) => void = noop;
+  private onChangeCallback: (_: string | null) => void = noop;
 
   public ngOnInit() {
     if (this.singleFile) {
-      this.multiple = false;
-      this.both = false;
+      this.allowMultiple = false;
     }
-    if (window.screen.width <= 692) {
-      // 768px portrait
-      this.mobile = true;
-    }
-    WebcamUtil.getAvailableVideoInputs().then(
-      (mediaDevices: MediaDeviceInfo[]) => {
-        this.multipleWebcamsAvailable = mediaDevices && mediaDevices.length > 1;
+    if (typeof window !== 'undefined') {
+      if (window.screen.width <= 692) {
+        this.mobile = true;
       }
-    );
+    }
+    WebcamUtil.getAvailableVideoInputs().then((mediaDevices: MediaDeviceInfo[]) => {
+      this.multipleWebcamsAvailable = mediaDevices && mediaDevices.length > 1;
+    });
   }
 
-  // get accessor
-  get value(): any {
+  get value(): string | null {
     return this.innerValue;
   }
 
-  // set accessor including call the onchange callback
-  set value(v: any) {
+  set value(v: string | null) {
     if (v !== this.innerValue) {
       this.innerValue = v;
       this.onChangeCallback(v);
     }
   }
-  // Current time string.
 
-  public writeValue(value: any) {
+  public writeValue(value: string | null) {
     if (value !== this.innerValue) {
       this.innerValue = value;
     }
   }
 
-  // From ControlValueAccessor interface
-  public registerOnChange(fn: any) {
+  public registerOnChange(fn: (_: string | null) => void) {
     this.onChangeCallback = fn;
   }
 
-  // From ControlValueAccessor interface
-  public registerOnTouched(fn: any) {
+  public registerOnTouched(fn: () => void) {
     this.onTouchedCallback = fn;
   }
 
-  public onBlur() {
+  public messageViewTimeout() {
+    if (this.messageTimeoutId) {
+      clearTimeout(this.messageTimeoutId);
+    }
+    this.messageTimeoutId = setTimeout(() => {
+      this.message = '';
+      this.notificationKind = '';
+      this.messageTimeoutId = null;
+    }, 12000);
+  }
+
+  public ngOnDestroy() {
+    if (this.messageTimeoutId) {
+      clearTimeout(this.messageTimeoutId);
+      this.messageTimeoutId = null;
+    }
+  }
+
+  public clear() {
+    this.clearSelection();
+    this.resetView();
     this.onTouchedCallback();
   }
 
-  public onChange(event: any) {
-    const files = event.srcElement.files;
-    this.uploading = true;
-    // const fileToLoad = files;
-    if (this.fieType === 'liveCamera') {
-      this.UploadCaptions = true;
-    }
-    if (files) {
-      for (const file of files) {
-        const fileReader = new FileReader();
-        if (this.fileType === 'pdf' && this.formEntry) {
-          this.urls = [];
-          this.fileList = [];
-        }
-        fileReader.onload = (fileLoadedEvent: any) => {
-          const data = fileReader.result;
-          const name = file.name;
-          const fileSize = Math.round(file.size / 1024);
-          if (fileSize >= 3072) {
-            this.message = 'File Too large';
-            this.messageType = 'danger';
-            this.messageViewTimeout();
-            this.back();
-          } else {
-            const payload = {
-              data,
-              id: this.urls.length + 1,
-              name: name,
-              size: fileSize,
-            };
-            if (!this.singleFile) {
-              this.urls.push(payload);
-              this.fileList.push(payload);
-            } else {
-              this.fileChanged.emit(payload);
-              this.back();
-            }
-          }
-        };
-        fileReader.readAsDataURL(file);
-      }
-    }
-  }
-  public messageViewTimeout() {
-    setTimeout(() => {
-      this.message = '';
-    }, 12000);
-  }
-  public clear() {
+  private clearSelection() {
+    this.readGeneration++;
     this.value = '';
-    this.onChangeCallback(this.value);
-    this.urls = [];
-    this.back();
-    this._onClear.emit();
+    this.selectedItems = [];
+    this.uploadQueue = [];
+    this.carbonFiles = new Set();
+    this.filePayloadCache.clear();
+    this.pdfCreated = false;
+    this.uploading = false;
+    this.notificationKind = '';
+    this.cleared.emit();
   }
-  public back() {
-    this.selectFileType = true;
-    this.urls = [];
-    this.backButton = false;
-    this.fileList = [];
-    this.UploadCaptions = false;
-    this.singleFile = false;
-    this.pdfAvailable = false;
-    this.merge = false;
-    this.fileUpload = false;
-    this.liveCamera = false;
+
+  public resetView() {
+    this.readGeneration++;
+    this.showTypeSelector = true;
+    this.selectedItems = [];
+    this.showBackButton = false;
+    this.uploadQueue = [];
+    this.showUploadActions = false;
+    this.hasPdfSelection = false;
+    this.showFileUploader = false;
+    this.webcamMode = false;
+    this.pdfCreated = false;
+    this.uploading = false;
+    this.selectedFileType = '';
+    this.carbonFiles = new Set();
+    this.filePayloadCache.clear();
+    this.notificationKind = '';
   }
-  public toggleVisibility(filetype: string) {
-    this.fieType = filetype;
+
+  public setUploadMode(filetype: SelectedFileType) {
+    this.selectedFileType = filetype;
+    if (this.value) {
+      this.clearSelection();
+    }
+    this.allowMultiple = !this.singleFile;
+    this.hasPdfSelection = filetype === 'pdf';
+    this.webcamMode = filetype === 'webcam';
     if (filetype === 'image') {
       if (this.formEntry) {
-        this.message =
-          ' Images will be merged into one pdf when uploaded in formentry';
-        this.messageType = 'danger';
+        this.message = ' Images will be merged into one pdf when uploaded in formentry';
+        this.notificationKind = 'danger';
         this.messageViewTimeout();
       }
-      this.fileType = 'image/png, image/jpeg, image/gif';
-      this.fileUpload = true;
+      this.acceptedMimeTypes = 'image/png, image/jpeg, image/gif';
+      this.showFileUploader = true;
     } else if (filetype === 'pdf') {
       if (this.formEntry) {
-        this.multiple = false;
+        this.allowMultiple = false;
       }
-      this.fileType = 'application/pdf';
-      this.pdfAvailable = true;
-      this.fileUpload = true;
-    } else if (filetype === 'both') {
-      this.fileType = 'image/png, image/jpeg, image/gif , application/pdf';
-      this.pdfAvailable = true;
-      this.fileUpload = true;
-    } else if (filetype === 'liveCamera') {
-      this.liveCamera = true;
+      this.acceptedMimeTypes = 'application/pdf';
+      this.showFileUploader = true;
+    } else if (filetype === 'webcam') {
+      this.showFileUploader = false;
     }
-    this.selectFileType = false;
-    this.backButton = true;
-    if (this.value) {
-      this.clear();
-    }
+    this.showTypeSelector = false;
+    this.showBackButton = true;
   }
 
   public async upload() {
     if (!this.pdfCreated) {
-      if (this.formEntry && this.pdfAvailable === false) {
-        await this.mergeImages();
+      if (this.formEntry && this.hasPdfSelection === false) {
+        const merged = await this.mergeImages();
+        if (!merged) {
+          return;
+        }
       }
     }
-    this.uploadData.emit(this.fileList);
-    this.back();
+    if (this.uploadQueue.length === 0) {
+      return;
+    }
+    this.uploadData.emit(this.uploadQueue);
+    this.resetView();
   }
 
-  private getImageDimensions(
-    dataUrl: string
-  ): Promise<{ width: number; height: number }> {
+  public get canMergeImages(): boolean {
+    return this.selectedItems.some((item) => this.isImageItem(item));
+  }
+
+  private getImageDimensions(dataUrl: string): Promise<{ width: number; height: number }> {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
@@ -266,21 +246,27 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit {
     });
   }
 
-  public async mergeImages() {
+  public async mergeImages(): Promise<boolean> {
+    const imageDataUrls = this.uploadQueue
+      .map((item) => this.getImageDataUrl(item))
+      .filter((dataUrl): dataUrl is string => typeof dataUrl === 'string');
+    if (imageDataUrls.length === 0) {
+      this.message = 'No images available to merge';
+      this.notificationKind = 'danger';
+      this.messageViewTimeout();
+      return false;
+    }
     const doc = new jsPDF({ compress: true });
     let currentPage = 1;
 
-    // Available space on page (in mm) with margins
     const maxWidth = 190;
     const maxHeight = 270;
     const marginX = 10;
     const marginY = 10;
 
-    for (let i = 0; i < this.fileList.length; i++) {
-      const imageData =
-        this.fileList[i].data || this.fileList[i].imageAsDataUrl;
+    for (let i = 0; i < imageDataUrls.length; i++) {
+      const imageData = imageDataUrls[i];
 
-      // Get actual image dimensions and calculate scaled size
       const dimensions = await this.getImageDimensions(imageData);
       const imgAspectRatio = dimensions.width / dimensions.height;
       const pageAspectRatio = maxWidth / maxHeight;
@@ -289,71 +275,53 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit {
       let imgHeight: number;
 
       if (imgAspectRatio > pageAspectRatio) {
-        // Image is wider - fit to width
         imgWidth = maxWidth;
         imgHeight = maxWidth / imgAspectRatio;
       } else {
-        // Image is taller - fit to height
         imgHeight = maxHeight;
         imgWidth = maxHeight * imgAspectRatio;
       }
 
-      // Center the image on the page
       const x = marginX + (maxWidth - imgWidth) / 2;
       const y = marginY + (maxHeight - imgHeight) / 2;
 
-      doc.addImage(
-        imageData,
-        'JPEG',
-        x,
-        y,
-        imgWidth,
-        imgHeight,
-        undefined,
-        'FAST'
-      );
+      doc.addImage(imageData, 'JPEG', x, y, imgWidth, imgHeight, undefined, 'FAST');
       doc.setFont('courier', 'normal');
       doc.text('page ' + currentPage, 180, 290);
 
-      if (i < this.fileList.length - 1) {
+      if (i < imageDataUrls.length - 1) {
         doc.addPage();
         currentPage++;
       }
     }
 
     doc.setProperties({
-      title: 'Ampath Medical Data',
-      author: 'POC',
-      creator: 'AMPATH',
+      title: 'OpenMRS File Upload',
     });
 
-    // Remove the last empty page if it exists
-    if (doc.getNumberOfPages() > this.fileList.length) {
+    if (doc.getNumberOfPages() > imageDataUrls.length) {
       doc.deletePage(doc.getNumberOfPages());
     }
 
-    this.fileList = [];
-    this.urls = [];
+    const nextId = this.selectedItems.length + 1;
+    this.uploadQueue = [];
+    this.selectedItems = [];
     const output = doc.output('datauristring');
-    doc.save(this.normalizePdfFileName());
-    const re = /filename=.*?\.pdf;/gi;
-    const data = output.replace(re, '');
-    const payload = {
+    const data = output.replace(/filename=.*?\.pdf;/gi, '');
+    const payload: FilePayload = {
       data,
+      id: nextId,
+      name: this.normalizePdfFileName(),
+      size: this.getDataSizeKb(data),
     };
-    if (this.formEntry) {
-      this.fileList = [];
-      this.urls = [];
-    }
-    this.message =
-      'The images have been merged into one pdf, You can now upload';
-    this.messageType = 'success';
+    this.message = 'Images were merged into a single PDF. You can upload it now.';
+    this.notificationKind = 'success';
     this.messageViewTimeout();
-    this.fileList.push(payload);
-    this.urls.push(payload);
-    this.singleFile = false;
-    this.UploadCaptions = true;
+    this.uploadQueue.push(payload);
+    this.selectedItems.push(payload);
+    this.showUploadActions = true;
     this.pdfCreated = true;
+    return true;
   }
 
   private normalizePdfFileName(): string {
@@ -366,42 +334,11 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit {
     }
     return trimmed.toLowerCase().endsWith('.pdf') ? trimmed : `${trimmed}.pdf`;
   }
-  public delete(urls: any) {
-    for (let i = 0; i <= this.urls.length; i++) {
-      if (urls.data) {
-        if (this.urls[i].data === urls.data) {
-          this.urls.splice(i, 1);
-          this.fileList.splice(i, 1);
-          break;
-        }
-      } else if (urls.imageAsDataUrl) {
-        if (this.urls[i].imageAsDataUrl === urls.imageAsDataUrl) {
-          this.urls.splice(i);
-          this.fileList.splice(i, 1);
-          break;
-        }
-      }
-    }
-    // enabling merge button if remaining on urls is images
-    const re = /pdf/gi;
-    for (let index = 0; index < this.urls.length; index++) {
-      if (this.urls[index].data.search(re) === -1) {
-        this.pdfAvailable = true;
-        break;
-      } else {
-        this.merge = true;
-        this.pdfAvailable = false;
-        this.fileUpload = true;
-      }
-    }
-  }
-  public triggerSnapshot(): void {
-    this.UploadCaptions = true;
-    this.trigger.next();
-  }
 
-  public toggleWebcam(): void {
-    this.showWebcam = !this.showWebcam;
+  public triggerSnapshot(): void {
+    this.showUploadActions = true;
+    this.trigger.next();
+    this.onTouchedCallback();
   }
 
   public handleInitError(error: WebcamInitError): void {
@@ -409,23 +346,242 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit {
   }
 
   public showNextWebcam(directionOrDeviceId: boolean | string): void {
-    // true => move forward through devices
-    // false => move backwards through devices
-    // string => move to device with given deviceId
     this.nextWebcam.next(directionOrDeviceId);
   }
 
   public handleImage(webcamImage: WebcamImage): void {
+    const payload = this.buildWebcamPayload(webcamImage);
     if (this.singleFile) {
-      this.urls = [];
-      this.fileList = [];
-      this.pushData(webcamImage);
+      this.selectedItems = [];
+      this.uploadQueue = [];
+      this.pushData(payload);
+      return;
     }
-    this.pushData(webcamImage);
+    this.pushData(payload);
   }
-  public pushData(webcamImage) {
-    this.urls.push(webcamImage);
-    this.fileList.push(webcamImage);
+
+  public pushData(item: FilePayload | WebcamImage) {
+    this.selectedItems.push(item);
+    this.uploadQueue.push(item);
+  }
+
+  public onCarbonFilesChange(files: Set<unknown>) {
+    this.onTouchedCallback();
+    this.carbonFiles = files ?? new Set();
+    const fileItems = Array.from(this.carbonFiles);
+    const selectedFiles = fileItems
+      .map((item) => this.extractFile(item))
+      .filter((file): file is File => file instanceof File);
+    if (selectedFiles.length === 0) {
+      this.clearSelection();
+      return;
+    }
+    this.pruneFileCache(selectedFiles);
+    this.handleSelectedFiles(selectedFiles, { replace: true });
+  }
+
+  public get notificationType(): 'error' | 'success' | 'warning' | 'info' {
+    switch (this.notificationKind) {
+      case 'danger':
+        return 'error';
+      case 'success':
+        return 'success';
+      case 'warning':
+        return 'warning';
+      default:
+        return 'info';
+    }
+  }
+
+  public get notificationTitle(): string {
+    switch (this.notificationKind) {
+      case 'danger':
+        return 'Error';
+      case 'success':
+        return 'Success';
+      case 'warning':
+        return 'Warning';
+      default:
+        return 'Info';
+    }
+  }
+
+  private handleSelectedFiles(files: File[], options: { replace: boolean } = { replace: false }) {
+    if (!files || files.length === 0) {
+      this.uploading = false;
+      return;
+    }
+    const nextFiles = this.allowMultiple ? files : files.slice(0, 1);
+    let pendingReads = 0;
+    let nextId = this.selectedItems.length + 1;
+    if (this.selectedFileType === 'webcam') {
+      this.showUploadActions = true;
+    }
+    if (options.replace) {
+      this.selectedItems = [];
+      this.uploadQueue = [];
+      nextId = 1;
+    }
+    const cachedPayloads: FilePayload[] = [];
+    for (const file of nextFiles) {
+      const key = this.buildFileKey(file);
+      const cached = this.filePayloadCache.get(key);
+      if (cached) {
+        cachedPayloads.push(cached);
+        continue;
+      }
+      pendingReads += 1;
+    }
+    if (cachedPayloads.length > 0) {
+      if (this.singleFile) {
+        const payload = cachedPayloads[0];
+        this.fileChanged.emit(payload);
+        this.resetView();
+        return;
+      }
+      this.selectedItems.push(...cachedPayloads);
+      this.uploadQueue.push(...cachedPayloads);
+      nextId = this.selectedItems.length + 1;
+    }
+    const generation = this.readGeneration;
+    this.uploading = pendingReads > 0;
+    for (const file of nextFiles) {
+      const key = this.buildFileKey(file);
+      if (this.filePayloadCache.has(key)) {
+        continue;
+      }
+      const fileReader = new FileReader();
+      if (this.selectedFileType === 'pdf' && this.formEntry) {
+        this.selectedItems = [];
+        this.uploadQueue = [];
+        nextId = 1;
+      }
+      fileReader.onload = () => {
+        if (this.readGeneration !== generation) {
+          return;
+        }
+        const data = fileReader.result;
+        const name = file.name;
+        const fileSize = Math.round(file.size / 1024);
+        if (fileSize >= 3072) {
+          this.message = 'File exceeds 3MB limit. Please select a smaller file.';
+          this.notificationKind = 'danger';
+          this.messageViewTimeout();
+          this.resetView();
+        } else {
+          const payload: FilePayload = {
+            data,
+            id: nextId,
+            name: name,
+            size: fileSize,
+          };
+          this.filePayloadCache.set(key, payload);
+          if (!this.singleFile) {
+            this.selectedItems.push(payload);
+            this.uploadQueue.push(payload);
+            nextId = this.selectedItems.length + 1;
+          } else {
+            this.fileChanged.emit(payload);
+            this.resetView();
+          }
+        }
+        pendingReads -= 1;
+        if (pendingReads === 0) {
+          this.uploading = false;
+        }
+      };
+      fileReader.onerror = () => {
+        pendingReads -= 1;
+        if (pendingReads === 0) {
+          this.uploading = false;
+        }
+      };
+      fileReader.readAsDataURL(file);
+    }
+  }
+
+  private getImageDataUrl(item: FilePayload | WebcamImage): string | null {
+    if ('imageAsDataUrl' in item) {
+      return item.imageAsDataUrl ?? null;
+    }
+    if (typeof item.data === 'string' && item.data.startsWith('data:image/')) {
+      return item.data;
+    }
+    return null;
+  }
+
+  private isImageItem(item: FilePayload | WebcamImage): boolean {
+    return this.getImageDataUrl(item) !== null;
+  }
+
+  private getDataSizeKb(dataUrl: string): number {
+    const base64Index = dataUrl.indexOf('base64,');
+    if (base64Index === -1) {
+      return 0;
+    }
+    const base64 = dataUrl.slice(base64Index + 'base64,'.length);
+    return Math.round((base64.length * 3) / 4 / 1024);
+  }
+
+  private buildWebcamPayload(webcamImage: WebcamImage): FilePayload {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const name = `webcam-${timestamp}.jpg`;
+    return {
+      data: webcamImage.imageAsDataUrl,
+      id: this.selectedItems.length + 1,
+      name,
+      size: this.getDataSizeKb(webcamImage.imageAsDataUrl),
+    };
+  }
+
+  private extractFile(item: unknown): File | null {
+    if (item instanceof File) {
+      return item;
+    }
+    if (item && typeof item === 'object' && 'file' in item) {
+      const possibleFile = (item as { file?: unknown }).file;
+      if (possibleFile instanceof File) {
+        return possibleFile;
+      }
+    }
+    return null;
+  }
+
+  private pruneFileCache(files: File[]) {
+    const keys = new Set(files.map((file) => this.buildFileKey(file)));
+    for (const key of this.filePayloadCache.keys()) {
+      if (!keys.has(key)) {
+        this.filePayloadCache.delete(key);
+      }
+    }
+  }
+
+  private buildFileKey(file: File): string {
+    return `${file.name}:${file.size}:${file.lastModified}`;
+  }
+
+  public get fileUploaderTitle(): string {
+    const kind = this.getUploaderKindLabel();
+    return this.allowMultiple ? `Upload ${kind.plural}` : `Upload ${kind.singular}`;
+  }
+
+  public get fileUploaderDescription(): string {
+    const kind = this.getUploaderKindLabel();
+    const base = this.allowMultiple
+      ? `Drag and drop or select ${kind.plural}`
+      : `Drag and drop or select a ${kind.singular}`;
+    return `${base} (max 3MB)`;
+  }
+
+  private getUploaderKindLabel(): { singular: string; plural: string } {
+    switch (this.selectedFileType) {
+      case 'image':
+        return { singular: 'image', plural: 'images' };
+      case 'pdf':
+        return { singular: 'PDF', plural: 'PDFs' };
+      default:
+        return { singular: 'file', plural: 'files' };
+    }
   }
 
   public cameraWasSwitched(deviceId: string): void {
@@ -439,8 +595,15 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit {
   public get nextWebcamObservable(): Observable<boolean | string> {
     return this.nextWebcam.asObservable();
   }
-  public getUrl() {
-    const file = this.srcUrl;
-    window.open(file, '_blank');
+
+  public openCurrentFile() {
+    const file = this.srcUrl || this.value;
+    if (!file) {
+      return;
+    }
+    const newWindow = window.open(file, '_blank', 'noopener,noreferrer');
+    if (newWindow) {
+      newWindow.opener = null;
+    }
   }
 }
