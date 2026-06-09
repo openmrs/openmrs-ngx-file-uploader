@@ -1,6 +1,6 @@
 {
   "name": "@openmrs/ngx-file-uploader",
-  "version": "20.0.0",
+  "version": "20.1.0",
   "peerDependencies": {
     "@carbon/icons": "^11.73.0",
     "@carbon/styles": "^1.98.0",
