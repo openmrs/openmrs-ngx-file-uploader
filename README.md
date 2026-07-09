@@ -16,6 +16,10 @@ This library expects Carbon Angular and related packages to be provided by the h
 yarn add carbon-components-angular @carbon/styles @carbon/icons @ibm/plex
 ```
 
+## Angular version policy
+
+This library ships Angular code to production as part of the O3 form engine stack, together with [openmrs-ngx-formentry](https://github.com/openmrs/openmrs-ngx-formentry) and [esm-form-entry-app](https://github.com/openmrs/openmrs-esm-patient-chart/tree/main/packages/esm-form-entry-app). All three must stay on the same Angular major, and that major must remain in support through the next RefApp release. By convention, this library's major version tracks the Angular major it supports: 20.x supports Angular 20, and an Angular migration lands as a major release. Before proposing or reviewing an Angular major version bump, read the [Angular version support policy](https://o3-docs.openmrs.org/en-US/docs/frontend-modules/angular-version-policy), which covers when to migrate, how the target version is chosen, and which toolchain packages gate the migration.
+
 ## Styles
 
 Ensure Carbon styles are included and fonts are available. Add the following to your global styles (e.g. `src/styles.scss`):
