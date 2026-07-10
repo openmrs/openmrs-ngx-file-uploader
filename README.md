@@ -24,13 +24,11 @@ IBM Plex is not a peer dependency, but the style configuration below expects its
 yarn add @ibm/plex@^6.4.1
 ```
 
-## Angular version policy
+## Compatibility
 
 This library is part of the O3 Angular form engine stack together with [openmrs-ngx-formentry](https://github.com/openmrs/openmrs-ngx-formentry) and [esm-form-entry-app](https://github.com/openmrs/openmrs-esm-patient-chart/tree/main/packages/esm-form-entry-app). All three must use the same Angular major version.
 
-The library's major version matches the Angular major it supports. For example, version 20.x supports Angular 20. The selected Angular version must remain supported through the next RefApp release.
-
-Before proposing or reviewing an Angular major version bump, read the [Angular version support policy](https://o3-docs.openmrs.org/en-US/docs/frontend-modules/angular-version-policy). It explains when to migrate, how to select the target version, and which toolchain packages must be ready first.
+The library's major version matches the Angular major it supports. For example, version 20.x supports Angular 20.
 
 ## Styles
 
@@ -157,3 +155,9 @@ When used through [openmrs-ngx-formentry](https://github.com/openmrs/openmrs-ngx
 4. The wrapper uses `DataSource.fetchFile()` when it needs to retrieve stored content for display.
 
 Neither this library nor `openmrs-ngx-formentry` defines the HTTP endpoint or storage implementation. Those responsibilities belong to the registered data source and its backend.
+
+## Development
+
+### Angular version upgrades
+
+The selected Angular version must remain supported through the next RefApp release. Before proposing or reviewing an Angular major version bump, read the [Angular version support policy](https://o3-docs.openmrs.org/en-US/docs/frontend-modules/angular-version-policy). It explains when to migrate, how to select the target version, and which toolchain packages must be ready first.
