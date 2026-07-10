@@ -5,17 +5,16 @@
     "@carbon/icons": "^11.73.0",
     "@carbon/styles": "^1.98.0",
     "@angular/animations": "^20.0.2",
-    "@angular/cdk": "^20.0.2",
     "@angular/common": "^20.0.2",
     "@angular/compiler": "^20.0.2",
     "@angular/compiler-cli": "^20.0.2",
     "@angular/core": "^20.0.2",
     "@angular/forms": "^20.0.2",
-    "@angular/material": "^20.0.2",
     "@angular/platform-browser": "^20.0.2",
     "@angular/platform-browser-dynamic": "^20.0.2",
     "@angular/router": "^20.0.2",
     "carbon-components-angular": "^5.62.1",
-    "jspdf": "^4.0.0"
+    "jspdf": "^4.0.0",
+    "ngx-webcam": "^0.4.1"
   }
 }
