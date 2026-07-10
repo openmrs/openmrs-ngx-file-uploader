@@ -16,6 +16,7 @@
     "@angular/platform-browser-dynamic": "^20.0.2",
     "@angular/router": "^20.0.2",
     "carbon-components-angular": "^5.62.1",
-    "jspdf": "^4.0.0"
+    "jspdf": "^4.0.0",
+    "ngx-webcam": "^0.4.1"
   }
 }
