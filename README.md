@@ -13,8 +13,7 @@ yarn add @openmrs/ngx-file-uploader
 The host application must use Angular 20 and satisfy the peer dependency ranges in the [library package manifest](projects/ngx-file-uploader/package.json). An Angular 20 application that already provides the core Angular packages can install the remaining runtime and UI packages with:
 
 ```bash
-yarn add @angular/cdk@^20.0.2 @angular/material@^20.0.2 \
-  carbon-components-angular@^5.62.1 @carbon/styles@^1.98.0 @carbon/icons@^11.73.0 \
+yarn add carbon-components-angular@^5.62.1 @carbon/styles@^1.98.0 @carbon/icons@^11.73.0 \
   jspdf@^4.0.0 ngx-webcam@^0.4.1
 ```
 
@@ -97,7 +96,7 @@ Webcam snapshots continue through the `uploadData` flow, including when `singleF
 | `singleFile`  | `boolean`        | `false`             | Restricts picker selection to one file and emits that selection through `fileChanged`.                                                              |
 | `formEntry`   | `boolean`        | `false`             | Automatically converts selected images or webcam captures into one PDF before `uploadData` is emitted. It also restricts PDF selection to one file. |
 | `pdfFileName` | `string`         | `merged-images.pdf` | Sets the name of a PDF created by merging images. A `.pdf` extension is added when missing.                                                         |
-| `srcUrl`      | `string`         | `''`                | Supplies the URL opened by **View current file** when `ngModel` contains a stored value.                                                            |
+| `srcUrl`      | `string`         | `''`                | Overrides the URL opened by **View current file**. When empty, the component opens the stored `ngModel` value.                                      |
 | `source`      | `string \| null` | `null`              | Currently unused and has no effect.                                                                                                                 |
 
 ## Outputs
@@ -122,7 +121,7 @@ type FilePayload = {
 For the current picker and webcam paths:
 
 - `data` is a browser data URL containing the base64-encoded content.
-- `id` is a one-based identifier within the current selection.
+- `id` is a component-generated numeric identifier. Do not assume it represents the item's position in the emitted selection.
 - `name` is the original file name or a generated webcam/PDF name.
 - `size` is the approximate size in kilobytes.
 
