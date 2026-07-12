@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
-import { NgxFileUploaderComponent } from './ngx-file-uploader.component';
+import { FilePayload, NgxFileUploaderComponent } from './ngx-file-uploader.component';
 
 describe('NgxFileUploaderComponent', () => {
   let component: NgxFileUploaderComponent;
@@ -139,9 +139,69 @@ describe('NgxFileUploaderComponent', () => {
     component.clear();
     expect(clearSpy).toHaveBeenCalled();
   });
+
+  it('skips only the oversized file and keeps the valid selection on the picker', () => {
+    component.setUploadMode('image');
+    fixture.detectChanges();
+
+    component.onCarbonFilesChange(
+      new Set([
+        { file: makeFile('ok-1.png', 1024) },
+        { file: makeFile('ok-2.png', 2048) },
+        { file: makeFile('too-big.png', 4 * 1024 * 1024) },
+      ])
+    );
+    fixture.detectChanges();
+
+    expect((component.selectedItems as FilePayload[]).map((item) => item.name)).toEqual(['ok-1.png', 'ok-2.png']);
+    expect(component.uploadQueue.length).toBe(2);
+    // View is not reset back to the type selector.
+    expect(component.showTypeSelector).toBeFalse();
+    expect(component.showFileUploader).toBeTrue();
+    // The rejection notice keeps its error styling and names the skipped file.
+    expect(component.notificationKind).toBe('danger');
+    expect(component.message).toContain('too-big.png');
+  });
+
+  it('clears the notification message and kind on resetView', () => {
+    component.message = 'stale message';
+    component.notificationKind = 'success';
+
+    component.resetView();
+
+    expect(component.message).toBe('');
+    expect(component.notificationKind).toBe('');
+  });
+
+  it('clears the notification message and kind on clear', () => {
+    component.message = 'stale message';
+    component.notificationKind = 'success';
+
+    component.clear();
+
+    expect(component.message).toBe('');
+    expect(component.notificationKind).toBe('');
+  });
+
+  it('shows the form-entry merge notice as a warning, not an error', () => {
+    component.formEntry = true;
+
+    component.setUploadMode('image');
+    fixture.detectChanges();
+
+    expect(component.notificationKind).toBe('warning');
+    expect(component.message).toContain('merged');
+  });
 });
 
 function findButtonByText(root: HTMLElement, text: string): HTMLButtonElement | null {
   const buttons = Array.from(root.querySelectorAll('button'));
   return buttons.find((btn) => btn.textContent?.trim() === text) as HTMLButtonElement | null;
+}
+
+// Builds a File with a controlled size without allocating its bytes.
+function makeFile(name: string, size: number): File {
+  const file = new File(['x'], name, { type: 'image/png' });
+  Object.defineProperty(file, 'size', { value: size });
+  return file;
 }
