@@ -271,6 +271,50 @@ describe('NgxFileUploaderComponent', () => {
     expect(component.uploadQueue.length).toBe(1);
     expect((component.uploadQueue[0] as FilePayload).data).toBe('data:image/jpeg;base64,BBB');
   });
+
+  it('ignores file selection while disabled', () => {
+    component.setUploadMode('image');
+    component.setDisabledState(true);
+
+    component.onCarbonFilesChange(new Set([{ file: makeFile('blocked.png', 1024) }]));
+
+    expect(component.disabled).toBeTrue();
+    expect(component.selectedItems.length).toBe(0);
+  });
+
+  it('ignores a webcam capture while disabled', () => {
+    component.setDisabledState(true);
+
+    component.handleImage({ imageAsDataUrl: 'data:image/jpeg;base64,AAA' } as unknown as WebcamImage);
+
+    expect(component.uploadQueue.length).toBe(0);
+  });
+
+  it('does not emit uploadData while disabled', async () => {
+    component.uploadQueue = [{ data: 'x', id: 1, name: 'a.png', size: 1 }];
+    component.selectedItems = [...component.uploadQueue];
+    component.setDisabledState(true);
+    const uploadDataSpy = spyOn(component.uploadData, 'emit');
+
+    await component.upload();
+
+    expect(uploadDataSpy).not.toHaveBeenCalled();
+  });
+
+  it('reports a danger notification and keeps the queue when images cannot be merged', async () => {
+    // Data URLs that are not decodable images make getImageDimensions reject.
+    component.uploadQueue = [
+      { data: 'data:image/png;base64,AAA', id: 1, name: 'a.png', size: 1 },
+      { data: 'data:image/png;base64,BBB', id: 2, name: 'b.png', size: 1 },
+    ];
+    component.selectedItems = [...component.uploadQueue];
+
+    const merged = await component.mergeImages();
+
+    expect(merged).toBeFalse();
+    expect(component.notificationKind).toBe('danger');
+    expect(component.selectedItems.length).toBe(2);
+  });
 });
 
 function findButtonByText(root: HTMLElement, text: string): HTMLButtonElement | null {
