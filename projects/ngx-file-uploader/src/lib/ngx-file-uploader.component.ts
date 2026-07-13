@@ -56,7 +56,6 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
   public notificationKind: 'danger' | 'success' | 'warning' | '' = '';
   public webcamMode = false;
   public hasPdfSelection = false;
-  public mobile = false;
   public showUploadActions = false;
   @Input() public singleFile = false;
   @Input() public formEntry = false;
@@ -78,8 +77,6 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
   public videoOptions: MediaTrackConstraints = {};
   public errors: WebcamInitError[] = [];
 
-  public webcamImage: WebcamImage | null = null;
-
   private trigger: Subject<void> = new Subject<void>();
   private nextWebcam: Subject<boolean | string> = new Subject<boolean | string>();
   public uploading = false;
@@ -95,11 +92,6 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
   public ngOnInit() {
     if (this.singleFile) {
       this.allowMultiple = false;
-    }
-    if (typeof window !== 'undefined') {
-      if (window.screen.width <= 692) {
-        this.mobile = true;
-      }
     }
     WebcamUtil.getAvailableVideoInputs().then((mediaDevices: MediaDeviceInfo[]) => {
       this.multipleWebcamsAvailable = mediaDevices && mediaDevices.length > 1;
@@ -142,6 +134,15 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
     }, 12000);
   }
 
+  private clearNotification() {
+    if (this.messageTimeoutId) {
+      clearTimeout(this.messageTimeoutId);
+      this.messageTimeoutId = null;
+    }
+    this.message = '';
+    this.notificationKind = '';
+  }
+
   public ngOnDestroy() {
     if (this.messageTimeoutId) {
       clearTimeout(this.messageTimeoutId);
@@ -164,7 +165,7 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
     this.filePayloadCache.clear();
     this.pdfCreated = false;
     this.uploading = false;
-    this.notificationKind = '';
+    this.clearNotification();
     this.cleared.emit();
   }
 
@@ -183,7 +184,7 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
     this.selectedFileType = '';
     this.carbonFiles = new Set();
     this.filePayloadCache.clear();
-    this.notificationKind = '';
+    this.clearNotification();
   }
 
   public setUploadMode(filetype: SelectedFileType) {
@@ -196,8 +197,8 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
     this.webcamMode = filetype === 'webcam';
     if (filetype === 'image') {
       if (this.formEntry) {
-        this.message = ' Images will be merged into one pdf when uploaded in formentry';
-        this.notificationKind = 'danger';
+        this.message = 'Images will be merged into a single PDF when uploaded in form entry mode.';
+        this.notificationKind = 'warning';
         this.messageViewTimeout();
       }
       this.acceptedMimeTypes = 'image/png, image/jpeg, image/gif';
@@ -298,10 +299,6 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
     doc.setProperties({
       title: 'OpenMRS File Upload',
     });
-
-    if (doc.getNumberOfPages() > imageDataUrls.length) {
-      doc.deletePage(doc.getNumberOfPages());
-    }
 
     const nextId = this.selectedItems.length + 1;
     this.uploadQueue = [];
@@ -464,10 +461,11 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
         const name = file.name;
         const fileSize = Math.round(file.size / 1024);
         if (fileSize >= 3072) {
-          this.message = 'File exceeds 3MB limit. Please select a smaller file.';
+          this.message = `${name} exceeds the 3MB limit and was skipped.`;
           this.notificationKind = 'danger';
           this.messageViewTimeout();
-          this.resetView();
+          // Drop the rejected file from the Carbon set so it is no longer shown as selected.
+          this.carbonFiles = new Set([...this.carbonFiles].filter((item) => this.extractFile(item) !== file));
         } else {
           const payload: FilePayload = {
             data,
