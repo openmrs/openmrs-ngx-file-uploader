@@ -155,6 +155,11 @@ describe('NgxFileUploaderComponent', () => {
 
     expect((component.selectedItems as FilePayload[]).map((item) => item.name)).toEqual(['ok-1.png', 'ok-2.png']);
     expect(component.uploadQueue.length).toBe(2);
+    // The rejected file is also dropped from the Carbon set, so it is no longer displayed.
+    expect([...component.carbonFiles].map((item) => (item as { file: File }).file.name)).toEqual([
+      'ok-1.png',
+      'ok-2.png',
+    ]);
     // View is not reset back to the type selector.
     expect(component.showTypeSelector).toBeFalse();
     expect(component.showFileUploader).toBeTrue();

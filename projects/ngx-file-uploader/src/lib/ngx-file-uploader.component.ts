@@ -464,6 +464,8 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
           this.message = `${name} exceeds the 3MB limit and was skipped.`;
           this.notificationKind = 'danger';
           this.messageViewTimeout();
+          // Drop the rejected file from the Carbon set so it is no longer shown as selected.
+          this.carbonFiles = new Set([...this.carbonFiles].filter((item) => this.extractFile(item) !== file));
         } else {
           const payload: FilePayload = {
             data,
