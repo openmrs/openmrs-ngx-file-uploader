@@ -57,6 +57,7 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
   public webcamMode = false;
   public hasPdfSelection = false;
   public showUploadActions = false;
+  public disabled = false;
   @Input() public singleFile = false;
   @Input() public formEntry = false;
   @Input() public srcUrl = '';
@@ -121,6 +122,13 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
 
   public registerOnTouched(fn: () => void) {
     this.onTouchedCallback = fn;
+  }
+
+  public setDisabledState(isDisabled: boolean) {
+    if (isDisabled && !this.disabled) {
+      this.cancelPendingFileReads();
+    }
+    this.disabled = isDisabled;
   }
 
   public messageViewTimeout() {
@@ -217,6 +225,9 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
   }
 
   public async upload() {
+    if (this.disabled) {
+      return;
+    }
     if (!this.pdfCreated) {
       if (this.formEntry && this.hasPdfSelection === false) {
         const merged = await this.mergeImages();
@@ -257,68 +268,73 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
       this.messageViewTimeout();
       return false;
     }
-    const doc = new jsPDF({ compress: true });
-    let currentPage = 1;
-
     const maxWidth = 190;
     const maxHeight = 270;
     const marginX = 10;
     const marginY = 10;
 
-    for (let i = 0; i < imageDataUrls.length; i++) {
-      const imageData = imageDataUrls[i];
+    try {
+      const doc = new jsPDF({ compress: true });
+      let currentPage = 1;
 
-      const dimensions = await this.getImageDimensions(imageData);
-      const imgAspectRatio = dimensions.width / dimensions.height;
-      const pageAspectRatio = maxWidth / maxHeight;
+      for (let i = 0; i < imageDataUrls.length; i++) {
+        const imageData = imageDataUrls[i];
 
-      let imgWidth: number;
-      let imgHeight: number;
+        const dimensions = await this.getImageDimensions(imageData);
+        const imgAspectRatio = dimensions.width / dimensions.height;
+        const pageAspectRatio = maxWidth / maxHeight;
 
-      if (imgAspectRatio > pageAspectRatio) {
-        imgWidth = maxWidth;
-        imgHeight = maxWidth / imgAspectRatio;
-      } else {
-        imgHeight = maxHeight;
-        imgWidth = maxHeight * imgAspectRatio;
+        let imgWidth: number;
+        let imgHeight: number;
+
+        if (imgAspectRatio > pageAspectRatio) {
+          imgWidth = maxWidth;
+          imgHeight = maxWidth / imgAspectRatio;
+        } else {
+          imgHeight = maxHeight;
+          imgWidth = maxHeight * imgAspectRatio;
+        }
+
+        const x = marginX + (maxWidth - imgWidth) / 2;
+        const y = marginY + (maxHeight - imgHeight) / 2;
+
+        doc.addImage(imageData, 'JPEG', x, y, imgWidth, imgHeight, undefined, 'FAST');
+        doc.setFont('courier', 'normal');
+        doc.text('page ' + currentPage, 180, 290);
+
+        if (i < imageDataUrls.length - 1) {
+          doc.addPage();
+          currentPage++;
+        }
       }
 
-      const x = marginX + (maxWidth - imgWidth) / 2;
-      const y = marginY + (maxHeight - imgHeight) / 2;
+      doc.setProperties({
+        title: 'OpenMRS File Upload',
+      });
 
-      doc.addImage(imageData, 'JPEG', x, y, imgWidth, imgHeight, undefined, 'FAST');
-      doc.setFont('courier', 'normal');
-      doc.text('page ' + currentPage, 180, 290);
-
-      if (i < imageDataUrls.length - 1) {
-        doc.addPage();
-        currentPage++;
-      }
+      const nextId = this.selectedItems.length + 1;
+      const output = doc.output('datauristring');
+      const data = output.replace(/filename=.*?\.pdf;/gi, '');
+      const payload: FilePayload = {
+        data,
+        id: nextId,
+        name: this.normalizePdfFileName(),
+        size: this.getDataSizeKb(data),
+      };
+      this.message = 'Images were merged into a single PDF. You can upload it now.';
+      this.notificationKind = 'success';
+      this.messageViewTimeout();
+      this.uploadQueue = [payload];
+      this.selectedItems = [payload];
+      this.showUploadActions = true;
+      this.pdfCreated = true;
+      return true;
+    } catch {
+      this.message = 'The selected images could not be merged. Please try different files.';
+      this.notificationKind = 'danger';
+      this.messageViewTimeout();
+      return false;
     }
-
-    doc.setProperties({
-      title: 'OpenMRS File Upload',
-    });
-
-    const nextId = this.selectedItems.length + 1;
-    this.uploadQueue = [];
-    this.selectedItems = [];
-    const output = doc.output('datauristring');
-    const data = output.replace(/filename=.*?\.pdf;/gi, '');
-    const payload: FilePayload = {
-      data,
-      id: nextId,
-      name: this.normalizePdfFileName(),
-      size: this.getDataSizeKb(data),
-    };
-    this.message = 'Images were merged into a single PDF. You can upload it now.';
-    this.notificationKind = 'success';
-    this.messageViewTimeout();
-    this.uploadQueue.push(payload);
-    this.selectedItems.push(payload);
-    this.showUploadActions = true;
-    this.pdfCreated = true;
-    return true;
   }
 
   private normalizePdfFileName(): string {
@@ -333,6 +349,9 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
   }
 
   public triggerSnapshot(): void {
+    if (this.disabled) {
+      return;
+    }
     this.showUploadActions = true;
     this.trigger.next();
     this.onTouchedCallback();
@@ -347,6 +366,9 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
   }
 
   public handleImage(webcamImage: WebcamImage): void {
+    if (this.disabled) {
+      return;
+    }
     const payload = this.buildWebcamPayload(webcamImage);
     if (this.singleFile) {
       this.selectedItems = [];
@@ -363,6 +385,9 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
   }
 
   public onCarbonFilesChange(files: Set<unknown>) {
+    if (this.disabled) {
+      return;
+    }
     this.onTouchedCallback();
     this.carbonFiles = files ?? new Set();
     const fileItems = Array.from(this.carbonFiles);
@@ -375,6 +400,13 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
     }
     this.pruneFileCache(selectedFiles);
     this.handleSelectedFiles(selectedFiles, { replace: true });
+  }
+
+  public removeCarbonFile(fileItem: unknown) {
+    if (this.disabled) {
+      return;
+    }
+    this.onCarbonFilesChange(new Set([...this.carbonFiles].filter((item) => item !== fileItem)));
   }
 
   public get notificationType(): 'error' | 'success' | 'warning' | 'info' {
@@ -496,6 +528,20 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
       };
       fileReader.readAsDataURL(file);
     }
+  }
+
+  private cancelPendingFileReads() {
+    if (!this.uploading) {
+      return;
+    }
+    this.readGeneration++;
+    this.uploading = false;
+    this.carbonFiles = new Set(
+      [...this.carbonFiles].filter((item) => {
+        const file = this.extractFile(item);
+        return file !== null && this.filePayloadCache.has(this.buildFileKey(file));
+      }),
+    );
   }
 
   private getImageDataUrl(item: FilePayload | WebcamImage): string | null {

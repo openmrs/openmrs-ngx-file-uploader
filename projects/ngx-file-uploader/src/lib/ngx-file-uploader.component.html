@@ -12,7 +12,7 @@
 
   @if (showBackButton) {
     <div class="uploader-actions">
-      <button cdsButton="tertiary" size="sm" type="button" (click)="resetView()">Back</button>
+      <button cdsButton="tertiary" size="sm" type="button" [disabled]="disabled" (click)="resetView()">Back</button>
     </div>
   }
 
@@ -20,7 +20,7 @@
     <div class="uploader-actions">
       @if (value) {
         <button cdsButton="ghost" size="sm" type="button" (click)="openCurrentFile()">View current file</button>
-        <button cdsButton="ghost" size="sm" type="button" (click)="clear()">Clear</button>
+        <button cdsButton="ghost" size="sm" type="button" [disabled]="disabled" (click)="clear()">Clear</button>
       }
     </div>
     <cds-radio-group
@@ -28,6 +28,7 @@
       orientation="horizontal"
       [(ngModel)]="selectedFileType"
       (ngModelChange)="setUploadMode($event)"
+      [disabled]="disabled"
     >
       <cds-radio value="image">Image</cds-radio>
       <cds-radio value="pdf">PDF</cds-radio>
@@ -38,7 +39,13 @@
   @if (selectedItems[0]) {
     <div class="uploader-actions">
       @if (showUploadActions) {
-        <button cdsButton="primary" size="sm" type="button" [disabled]="!selectedItems.length" (click)="upload()">
+        <button
+          cdsButton="primary"
+          size="sm"
+          type="button"
+          [disabled]="disabled || !selectedItems.length"
+          (click)="upload()"
+        >
           Upload files
         </button>
       }
@@ -47,7 +54,7 @@
           cdsButton="secondary"
           size="sm"
           type="button"
-          [disabled]="!selectedItems[1]"
+          [disabled]="disabled || !selectedItems[1]"
           (click)="mergeImages()"
           title="Merge the images as pages in one PDF document"
         >
@@ -66,14 +73,22 @@
         [title]="fileUploaderTitle"
         [description]="fileUploaderDescription"
         [files]="carbonFiles"
+        [disabled]="disabled"
+        [fileActionsTpl]="fileActions"
         (filesChange)="onCarbonFilesChange($event)"
       ></cds-file-uploader>
       <div class="uploader-actions">
         @if (value) {
-          <button cdsButton="ghost" size="sm" type="button" (click)="clear()">Clear</button>
+          <button cdsButton="ghost" size="sm" type="button" [disabled]="disabled" (click)="clear()">Clear</button>
         }
         @if (!showUploadActions) {
-          <button cdsButton="primary" size="sm" type="button" [disabled]="!selectedItems.length" (click)="upload()">
+          <button
+            cdsButton="primary"
+            size="sm"
+            type="button"
+            [disabled]="disabled || !selectedItems.length"
+            (click)="upload()"
+          >
             Upload
           </button>
         }
@@ -98,8 +113,15 @@
         ></webcam>
       }
       <div class="uploader-actions">
-        <button cdsButton="secondary" size="sm" (click)="triggerSnapshot()">Take a snapshot</button>
-        <button cdsButton="tertiary" size="sm" (click)="showNextWebcam(true)" [disabled]="!multipleWebcamsAvailable">
+        <button cdsButton="secondary" size="sm" [disabled]="disabled" (click)="triggerSnapshot()">
+          Take a snapshot
+        </button>
+        <button
+          cdsButton="tertiary"
+          size="sm"
+          (click)="showNextWebcam(true)"
+          [disabled]="disabled || !multipleWebcamsAvailable"
+        >
           Change camera
         </button>
       </div>
@@ -113,4 +135,18 @@
       }
     </div>
   }
+
+  <ng-template #fileActions let-fileItem>
+    <button
+      cdsButton="ghost"
+      type="button"
+      iconOnly="true"
+      size="sm"
+      aria-label="Remove file"
+      [disabled]="disabled"
+      (click)="removeCarbonFile(fileItem)"
+    >
+      <svg cdsIcon="trash-can" size="16"></svg>
+    </button>
+  </ng-template>
 </div>
