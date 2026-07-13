@@ -125,6 +125,9 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
   }
 
   public setDisabledState(isDisabled: boolean) {
+    if (isDisabled && !this.disabled) {
+      this.cancelPendingFileReads();
+    }
     this.disabled = isDisabled;
   }
 
@@ -310,8 +313,6 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
       });
 
       const nextId = this.selectedItems.length + 1;
-      this.uploadQueue = [];
-      this.selectedItems = [];
       const output = doc.output('datauristring');
       const data = output.replace(/filename=.*?\.pdf;/gi, '');
       const payload: FilePayload = {
@@ -323,8 +324,8 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
       this.message = 'Images were merged into a single PDF. You can upload it now.';
       this.notificationKind = 'success';
       this.messageViewTimeout();
-      this.uploadQueue.push(payload);
-      this.selectedItems.push(payload);
+      this.uploadQueue = [payload];
+      this.selectedItems = [payload];
       this.showUploadActions = true;
       this.pdfCreated = true;
       return true;
@@ -399,6 +400,13 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
     }
     this.pruneFileCache(selectedFiles);
     this.handleSelectedFiles(selectedFiles, { replace: true });
+  }
+
+  public removeCarbonFile(fileItem: unknown) {
+    if (this.disabled) {
+      return;
+    }
+    this.onCarbonFilesChange(new Set([...this.carbonFiles].filter((item) => item !== fileItem)));
   }
 
   public get notificationType(): 'error' | 'success' | 'warning' | 'info' {
@@ -520,6 +528,20 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
       };
       fileReader.readAsDataURL(file);
     }
+  }
+
+  private cancelPendingFileReads() {
+    if (!this.uploading) {
+      return;
+    }
+    this.readGeneration++;
+    this.uploading = false;
+    this.carbonFiles = new Set(
+      [...this.carbonFiles].filter((item) => {
+        const file = this.extractFile(item);
+        return file !== null && this.filePayloadCache.has(this.buildFileKey(file));
+      }),
+    );
   }
 
   private getImageDataUrl(item: FilePayload | WebcamImage): string | null {

@@ -2,7 +2,6 @@ import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 import type { WebcamImage } from 'ngx-webcam';
 import { FilePayload, NgxFileUploaderComponent } from './ngx-file-uploader.component';
 
-
 describe('NgxFileUploaderComponent', () => {
   let component: NgxFileUploaderComponent;
   let fixture: ComponentFixture<NgxFileUploaderComponent>;
@@ -99,21 +98,13 @@ describe('NgxFileUploaderComponent', () => {
     ];
     fixture.detectChanges();
 
-    const mergeButton = findButtonByText(
-      fixture.nativeElement,
-      'Merge images to PDF'
-    );
+    const mergeButton = findButtonByText(fixture.nativeElement, 'Merge images to PDF');
     expect(mergeButton).toBeTruthy();
 
-    component.selectedItems = [
-      { data: 'data:application/pdf;base64,AAA', id: 1, name: 'x.pdf', size: 1 },
-    ];
+    component.selectedItems = [{ data: 'data:application/pdf;base64,AAA', id: 1, name: 'x.pdf', size: 1 }];
     fixture.detectChanges();
 
-    const mergeButtonAfter = findButtonByText(
-      fixture.nativeElement,
-      'Merge images to PDF'
-    );
+    const mergeButtonAfter = findButtonByText(fixture.nativeElement, 'Merge images to PDF');
     expect(mergeButtonAfter).toBeFalsy();
   });
 
@@ -151,7 +142,7 @@ describe('NgxFileUploaderComponent', () => {
         { file: makeFile('ok-1.png', 1024) },
         { file: makeFile('ok-2.png', 2048) },
         { file: makeFile('too-big.png', 4 * 1024 * 1024) },
-      ])
+      ]),
     );
     fixture.detectChanges();
 
@@ -282,6 +273,62 @@ describe('NgxFileUploaderComponent', () => {
     expect(component.selectedItems.length).toBe(0);
   });
 
+  it('cancels an in-flight file read when disabled before it completes', () => {
+    component.setUploadMode('image');
+    const readSpy = spyOn(MockFileReader.prototype, 'readAsDataURL').and.stub();
+
+    component.onCarbonFilesChange(new Set([{ file: makeFile('blocked.png', 1024) }]));
+    const reader = readSpy.calls.mostRecent().object as unknown as MockFileReader;
+    component.setDisabledState(true);
+    reader.result = 'data:image/png;base64,AAA';
+    reader.onload?.call(reader as unknown as FileReader, {} as ProgressEvent<FileReader>);
+
+    expect(component.selectedItems.length).toBe(0);
+    expect(component.uploadQueue.length).toBe(0);
+    expect(component.carbonFiles.size).toBe(0);
+  });
+
+  it('disables removal of an already-selected file', () => {
+    component.setUploadMode('image');
+    const file = makeFile('selected.png', 1024);
+    component.onCarbonFilesChange(new Set([{ file, state: 'edit', uploaded: false, invalid: false, invalidText: '' }]));
+    component.setDisabledState(true);
+    fixture.detectChanges();
+
+    const removeButton = fixture.nativeElement.querySelector('.cds--file__selected-file button') as HTMLButtonElement;
+
+    expect(removeButton).toBeTruthy();
+    expect(removeButton.disabled).toBeTrue();
+    removeButton.click();
+    expect(component.selectedItems.length).toBe(1);
+    expect(component.uploadQueue.length).toBe(1);
+  });
+
+  it('removes an already-selected file while enabled', () => {
+    component.setUploadMode('image');
+    const file = makeFile('selected.png', 1024);
+    component.onCarbonFilesChange(new Set([{ file, state: 'edit', uploaded: false, invalid: false, invalidText: '' }]));
+    fixture.detectChanges();
+
+    const removeButton = fixture.nativeElement.querySelector('.cds--file__selected-file button') as HTMLButtonElement;
+    removeButton.click();
+
+    expect(component.selectedItems.length).toBe(0);
+    expect(component.uploadQueue.length).toBe(0);
+    expect(component.carbonFiles.size).toBe(0);
+  });
+
+  it('disables the Back button', () => {
+    component.setUploadMode('image');
+    component.setDisabledState(true);
+    fixture.detectChanges();
+
+    const backButton = findButtonByText(fixture.nativeElement, 'Back');
+
+    expect(backButton).toBeTruthy();
+    expect(backButton?.disabled).toBeTrue();
+  });
+
   it('ignores a webcam capture while disabled', () => {
     component.setDisabledState(true);
 
@@ -314,6 +361,20 @@ describe('NgxFileUploaderComponent', () => {
     expect(merged).toBeFalse();
     expect(component.notificationKind).toBe('danger');
     expect(component.selectedItems.length).toBe(2);
+  });
+
+  it('keeps the queue when payload construction fails after PDF serialization', async () => {
+    const png = makePngDataUrl();
+    component.uploadQueue = [{ data: png, id: 1, name: 'a.png', size: 1 }];
+    component.selectedItems = [...component.uploadQueue];
+    const internals = component as unknown as { normalizePdfFileName(): string };
+    spyOn(internals, 'normalizePdfFileName').and.throwError('payload construction failed');
+
+    const merged = await component.mergeImages();
+
+    expect(merged).toBeFalse();
+    expect(component.uploadQueue.length).toBe(1);
+    expect(component.selectedItems.length).toBe(1);
   });
 });
 
