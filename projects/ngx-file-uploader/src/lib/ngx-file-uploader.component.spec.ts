@@ -1,5 +1,7 @@
 import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
+import type { WebcamImage } from 'ngx-webcam';
 import { FilePayload, NgxFileUploaderComponent } from './ngx-file-uploader.component';
+
 
 describe('NgxFileUploaderComponent', () => {
   let component: NgxFileUploaderComponent;
@@ -197,6 +199,78 @@ describe('NgxFileUploaderComponent', () => {
     expect(component.notificationKind).toBe('warning');
     expect(component.message).toContain('merged');
   });
+
+  it('emits fileChanged (not uploadData) and resets in single-file picker mode', () => {
+    component.singleFile = true;
+    component.setUploadMode('image');
+    fixture.detectChanges();
+    const fileChangedSpy = spyOn(component.fileChanged, 'emit');
+    const uploadDataSpy = spyOn(component.uploadData, 'emit');
+
+    component.onCarbonFilesChange(new Set([{ file: makeFile('one.png', 1024) }]));
+
+    expect(fileChangedSpy).toHaveBeenCalledTimes(1);
+    expect((fileChangedSpy.calls.mostRecent().args[0] as FilePayload).name).toBe('one.png');
+    expect(uploadDataSpy).not.toHaveBeenCalled();
+    expect(component.showTypeSelector).toBeTrue();
+  });
+
+  it('serves a re-selected file from cache without reading it again', () => {
+    component.setUploadMode('image');
+    const file = makeFile('cached.png', 1024);
+    const readSpy = spyOn(MockFileReader.prototype, 'readAsDataURL').and.callThrough();
+
+    component.onCarbonFilesChange(new Set([{ file }]));
+    expect(readSpy).toHaveBeenCalledTimes(1);
+    expect(component.selectedItems.length).toBe(1);
+
+    component.onCarbonFilesChange(new Set([{ file }]));
+    expect(readSpy).toHaveBeenCalledTimes(1);
+    expect(component.selectedItems.length).toBe(1);
+  });
+
+  it('merges queued images into a single PDF payload with a normalized name', async () => {
+    const png = makePngDataUrl();
+    component.pdfFileName = 'my-scan';
+    component.uploadQueue = [
+      { data: png, id: 1, name: 'a.png', size: 1 },
+      { data: png, id: 2, name: 'b.png', size: 1 },
+    ];
+    component.selectedItems = [...component.uploadQueue];
+
+    const merged = await component.mergeImages();
+
+    expect(merged).toBeTrue();
+    expect(component.uploadQueue.length).toBe(1);
+    const pdf = component.uploadQueue[0] as FilePayload;
+    expect(pdf.name).toBe('my-scan.pdf');
+    expect(typeof pdf.data).toBe('string');
+    expect((pdf.data as string).startsWith('data:application/pdf')).toBeTrue();
+    expect(component.pdfCreated).toBeTrue();
+  });
+
+  it('normalizes a webcam capture into a FilePayload', () => {
+    const capture = { imageAsDataUrl: 'data:image/jpeg;base64,ZZZ' } as unknown as WebcamImage;
+
+    component.handleImage(capture);
+
+    expect(component.uploadQueue.length).toBe(1);
+    const payload = component.uploadQueue[0] as FilePayload;
+    expect(payload.data).toBe('data:image/jpeg;base64,ZZZ');
+    expect(payload.name).toMatch(/^webcam-.*\.jpg$/);
+  });
+
+  it('keeps only the latest capture in single-file webcam mode', () => {
+    component.singleFile = true;
+    const first = { imageAsDataUrl: 'data:image/jpeg;base64,AAA' } as unknown as WebcamImage;
+    const second = { imageAsDataUrl: 'data:image/jpeg;base64,BBB' } as unknown as WebcamImage;
+
+    component.handleImage(first);
+    component.handleImage(second);
+
+    expect(component.uploadQueue.length).toBe(1);
+    expect((component.uploadQueue[0] as FilePayload).data).toBe('data:image/jpeg;base64,BBB');
+  });
 });
 
 function findButtonByText(root: HTMLElement, text: string): HTMLButtonElement | null {
@@ -209,4 +283,17 @@ function makeFile(name: string, size: number): File {
   const file = new File(['x'], name, { type: 'image/png' });
   Object.defineProperty(file, 'size', { value: size });
   return file;
+}
+
+// Renders a 1x1 PNG data URL via canvas so its chunk CRCs are valid for jsPDF/fast-png.
+function makePngDataUrl(): string {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1;
+  canvas.height = 1;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 1, 1);
+  }
+  return canvas.toDataURL('image/png');
 }
