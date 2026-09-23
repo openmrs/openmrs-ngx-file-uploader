@@ -2,7 +2,6 @@ import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 import type { WebcamImage } from 'ngx-webcam';
 import { FilePayload, NgxFileUploaderComponent } from './ngx-file-uploader.component';
 
-
 describe('NgxFileUploaderComponent', () => {
   let component: NgxFileUploaderComponent;
   let fixture: ComponentFixture<NgxFileUploaderComponent>;
@@ -99,21 +98,13 @@ describe('NgxFileUploaderComponent', () => {
     ];
     fixture.detectChanges();
 
-    const mergeButton = findButtonByText(
-      fixture.nativeElement,
-      'Merge images to PDF'
-    );
+    const mergeButton = findButtonByText(fixture.nativeElement, 'Merge images to PDF');
     expect(mergeButton).toBeTruthy();
 
-    component.selectedItems = [
-      { data: 'data:application/pdf;base64,AAA', id: 1, name: 'x.pdf', size: 1 },
-    ];
+    component.selectedItems = [{ data: 'data:application/pdf;base64,AAA', id: 1, name: 'x.pdf', size: 1 }];
     fixture.detectChanges();
 
-    const mergeButtonAfter = findButtonByText(
-      fixture.nativeElement,
-      'Merge images to PDF'
-    );
+    const mergeButtonAfter = findButtonByText(fixture.nativeElement, 'Merge images to PDF');
     expect(mergeButtonAfter).toBeFalsy();
   });
 
@@ -151,7 +142,7 @@ describe('NgxFileUploaderComponent', () => {
         { file: makeFile('ok-1.png', 1024) },
         { file: makeFile('ok-2.png', 2048) },
         { file: makeFile('too-big.png', 4 * 1024 * 1024) },
-      ])
+      ]),
     );
     fixture.detectChanges();
 
@@ -270,6 +261,185 @@ describe('NgxFileUploaderComponent', () => {
 
     expect(component.uploadQueue.length).toBe(1);
     expect((component.uploadQueue[0] as FilePayload).data).toBe('data:image/jpeg;base64,BBB');
+  });
+
+  it('ignores file selection while disabled', () => {
+    component.setUploadMode('image');
+    component.setDisabledState(true);
+
+    component.onCarbonFilesChange(new Set([{ file: makeFile('blocked.png', 1024) }]));
+
+    expect(component.disabled).toBeTrue();
+    expect(component.selectedItems.length).toBe(0);
+  });
+
+  it('cancels an in-flight file read when disabled before it completes', () => {
+    component.setUploadMode('image');
+    const readSpy = spyOn(MockFileReader.prototype, 'readAsDataURL').and.stub();
+
+    component.onCarbonFilesChange(new Set([{ file: makeFile('blocked.png', 1024) }]));
+    const reader = readSpy.calls.mostRecent().object as unknown as MockFileReader;
+    component.setDisabledState(true);
+    reader.result = 'data:image/png;base64,AAA';
+    reader.onload?.call(reader as unknown as FileReader, {} as ProgressEvent<FileReader>);
+
+    expect(component.selectedItems.length).toBe(0);
+    expect(component.uploadQueue.length).toBe(0);
+    expect(component.carbonFiles.size).toBe(0);
+  });
+
+  it('disables removal of an already-selected file', () => {
+    component.setUploadMode('image');
+    const file = makeFile('selected.png', 1024);
+    component.onCarbonFilesChange(new Set([{ file, state: 'edit', uploaded: false, invalid: false, invalidText: '' }]));
+    component.setDisabledState(true);
+    fixture.detectChanges();
+
+    const removeButton = fixture.nativeElement.querySelector('.cds--file__selected-file button') as HTMLButtonElement;
+
+    expect(removeButton).toBeTruthy();
+    expect(removeButton.disabled).toBeTrue();
+    removeButton.click();
+    expect(component.selectedItems.length).toBe(1);
+    expect(component.uploadQueue.length).toBe(1);
+  });
+
+  it('removes an already-selected file while enabled', () => {
+    component.setUploadMode('image');
+    const file = makeFile('selected.png', 1024);
+    component.onCarbonFilesChange(new Set([{ file, state: 'edit', uploaded: false, invalid: false, invalidText: '' }]));
+    fixture.detectChanges();
+
+    const removeButton = fixture.nativeElement.querySelector('.cds--file__selected-file button') as HTMLButtonElement;
+    removeButton.click();
+
+    expect(component.selectedItems.length).toBe(0);
+    expect(component.uploadQueue.length).toBe(0);
+    expect(component.carbonFiles.size).toBe(0);
+  });
+
+  it('disables the Back button', () => {
+    component.setUploadMode('image');
+    component.setDisabledState(true);
+    fixture.detectChanges();
+
+    const backButton = findButtonByText(fixture.nativeElement, 'Back');
+
+    expect(backButton).toBeTruthy();
+    expect(backButton?.disabled).toBeTrue();
+  });
+
+  it('ignores a webcam capture while disabled', () => {
+    component.setDisabledState(true);
+
+    component.handleImage({ imageAsDataUrl: 'data:image/jpeg;base64,AAA' } as unknown as WebcamImage);
+
+    expect(component.uploadQueue.length).toBe(0);
+  });
+
+  it('does not emit uploadData while disabled', async () => {
+    component.uploadQueue = [{ data: 'x', id: 1, name: 'a.png', size: 1 }];
+    component.selectedItems = [...component.uploadQueue];
+    component.setDisabledState(true);
+    const uploadDataSpy = spyOn(component.uploadData, 'emit');
+
+    await component.upload();
+
+    expect(uploadDataSpy).not.toHaveBeenCalled();
+  });
+
+  for (const action of ['merge', 'upload'] as const) {
+    for (const reenable of [false, true]) {
+      it(`cancels a pending ${action} when disabled${reenable ? ' and re-enabled' : ''}`, async () => {
+        const payload = { data: makePngDataUrl(), id: 1, name: 'a.png', size: 1 };
+        component.formEntry = true;
+        component.uploadQueue = [payload];
+        component.selectedItems = [payload];
+        let finishDecode!: (dimensions: { width: number; height: number }) => void;
+        const internals = component as unknown as {
+          getImageDimensions(data: string): Promise<{ width: number; height: number }>;
+        };
+        const decodeSpy = spyOn(internals, 'getImageDimensions').and.returnValue(
+          new Promise((resolve) => {
+            finishDecode = resolve;
+          }),
+        );
+        const uploadDataSpy = spyOn(component.uploadData, 'emit');
+
+        const pending = action === 'upload' ? component.upload() : component.mergeImages();
+        component.setDisabledState(true);
+        if (reenable) {
+          component.setDisabledState(false);
+        }
+        finishDecode({ width: 1, height: 1 });
+        await pending;
+
+        expect(uploadDataSpy).not.toHaveBeenCalled();
+        expect(component.uploadQueue).toEqual([payload]);
+        expect(component.selectedItems).toEqual([payload]);
+        expect(component.pdfCreated).toBeFalse();
+        expect(component.message).toBe('');
+
+        component.setDisabledState(false);
+        decodeSpy.and.callThrough();
+        expect(await component.mergeImages()).toBeTrue();
+        expect(component.pdfCreated).toBeTrue();
+      });
+    }
+  }
+
+  it('does not report a decode error from a cancelled merge', async () => {
+    const payload = { data: makePngDataUrl(), id: 1, name: 'a.png', size: 1 };
+    component.uploadQueue = [payload];
+    component.selectedItems = [payload];
+    let failDecode!: (reason: Error) => void;
+    const internals = component as unknown as {
+      getImageDimensions(data: string): Promise<{ width: number; height: number }>;
+    };
+    spyOn(internals, 'getImageDimensions').and.returnValue(
+      new Promise((_resolve, reject) => {
+        failDecode = reject;
+      }),
+    );
+
+    const pending = component.mergeImages();
+    component.setDisabledState(true);
+    failDecode(new Error('Image could not be decoded'));
+
+    expect(await pending).toBeFalse();
+    expect(component.uploadQueue).toEqual([payload]);
+    expect(component.selectedItems).toEqual([payload]);
+    expect(component.message).toBe('');
+    expect(component.notificationKind).toBe('');
+  });
+
+  it('reports a danger notification and keeps the queue when images cannot be merged', async () => {
+    // Data URLs that are not decodable images make getImageDimensions reject.
+    component.uploadQueue = [
+      { data: 'data:image/png;base64,AAA', id: 1, name: 'a.png', size: 1 },
+      { data: 'data:image/png;base64,BBB', id: 2, name: 'b.png', size: 1 },
+    ];
+    component.selectedItems = [...component.uploadQueue];
+
+    const merged = await component.mergeImages();
+
+    expect(merged).toBeFalse();
+    expect(component.notificationKind).toBe('danger');
+    expect(component.selectedItems.length).toBe(2);
+  });
+
+  it('keeps the queue when payload construction fails after PDF serialization', async () => {
+    const png = makePngDataUrl();
+    component.uploadQueue = [{ data: png, id: 1, name: 'a.png', size: 1 }];
+    component.selectedItems = [...component.uploadQueue];
+    const internals = component as unknown as { normalizePdfFileName(): string };
+    spyOn(internals, 'normalizePdfFileName').and.throwError('payload construction failed');
+
+    const merged = await component.mergeImages();
+
+    expect(merged).toBeFalse();
+    expect(component.uploadQueue.length).toBe(1);
+    expect(component.selectedItems.length).toBe(1);
   });
 });
 
