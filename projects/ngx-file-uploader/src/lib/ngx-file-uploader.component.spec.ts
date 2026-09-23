@@ -348,6 +348,71 @@ describe('NgxFileUploaderComponent', () => {
     expect(uploadDataSpy).not.toHaveBeenCalled();
   });
 
+  for (const action of ['merge', 'upload'] as const) {
+    for (const reenable of [false, true]) {
+      it(`cancels a pending ${action} when disabled${reenable ? ' and re-enabled' : ''}`, async () => {
+        const payload = { data: makePngDataUrl(), id: 1, name: 'a.png', size: 1 };
+        component.formEntry = true;
+        component.uploadQueue = [payload];
+        component.selectedItems = [payload];
+        let finishDecode!: (dimensions: { width: number; height: number }) => void;
+        const internals = component as unknown as {
+          getImageDimensions(data: string): Promise<{ width: number; height: number }>;
+        };
+        const decodeSpy = spyOn(internals, 'getImageDimensions').and.returnValue(
+          new Promise((resolve) => {
+            finishDecode = resolve;
+          }),
+        );
+        const uploadDataSpy = spyOn(component.uploadData, 'emit');
+
+        const pending = action === 'upload' ? component.upload() : component.mergeImages();
+        component.setDisabledState(true);
+        if (reenable) {
+          component.setDisabledState(false);
+        }
+        finishDecode({ width: 1, height: 1 });
+        await pending;
+
+        expect(uploadDataSpy).not.toHaveBeenCalled();
+        expect(component.uploadQueue).toEqual([payload]);
+        expect(component.selectedItems).toEqual([payload]);
+        expect(component.pdfCreated).toBeFalse();
+        expect(component.message).toBe('');
+
+        component.setDisabledState(false);
+        decodeSpy.and.callThrough();
+        expect(await component.mergeImages()).toBeTrue();
+        expect(component.pdfCreated).toBeTrue();
+      });
+    }
+  }
+
+  it('does not report a decode error from a cancelled merge', async () => {
+    const payload = { data: makePngDataUrl(), id: 1, name: 'a.png', size: 1 };
+    component.uploadQueue = [payload];
+    component.selectedItems = [payload];
+    let failDecode!: (reason: Error) => void;
+    const internals = component as unknown as {
+      getImageDimensions(data: string): Promise<{ width: number; height: number }>;
+    };
+    spyOn(internals, 'getImageDimensions').and.returnValue(
+      new Promise((_resolve, reject) => {
+        failDecode = reject;
+      }),
+    );
+
+    const pending = component.mergeImages();
+    component.setDisabledState(true);
+    failDecode(new Error('Image could not be decoded'));
+
+    expect(await pending).toBeFalse();
+    expect(component.uploadQueue).toEqual([payload]);
+    expect(component.selectedItems).toEqual([payload]);
+    expect(component.message).toBe('');
+    expect(component.notificationKind).toBe('');
+  });
+
   it('reports a danger notification and keeps the queue when images cannot be merged', async () => {
     // Data URLs that are not decodable images make getImageDimensions reject.
     component.uploadQueue = [

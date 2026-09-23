@@ -86,6 +86,7 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
   private messageTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private filePayloadCache = new Map<string, FilePayload>();
   private readGeneration = 0;
+  private mergeGeneration = 0;
 
   private onTouchedCallback: () => void = noop;
   private onChangeCallback: (_: string | null) => void = noop;
@@ -126,6 +127,7 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
 
   public setDisabledState(isDisabled: boolean) {
     if (isDisabled && !this.disabled) {
+      this.mergeGeneration++;
       this.cancelPendingFileReads();
     }
     this.disabled = isDisabled;
@@ -228,6 +230,7 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
     if (this.disabled) {
       return;
     }
+    const generation = this.mergeGeneration;
     if (!this.pdfCreated) {
       if (this.formEntry && this.hasPdfSelection === false) {
         const merged = await this.mergeImages();
@@ -236,7 +239,7 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
         }
       }
     }
-    if (this.uploadQueue.length === 0) {
+    if (this.disabled || generation !== this.mergeGeneration || this.uploadQueue.length === 0) {
       return;
     }
     this.uploadData.emit(this.uploadQueue);
@@ -259,6 +262,10 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
   }
 
   public async mergeImages(): Promise<boolean> {
+    if (this.disabled) {
+      return false;
+    }
+    const generation = this.mergeGeneration;
     const imageDataUrls = this.uploadQueue
       .map((item) => this.getImageDataUrl(item))
       .filter((dataUrl): dataUrl is string => typeof dataUrl === 'string');
@@ -281,6 +288,9 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
         const imageData = imageDataUrls[i];
 
         const dimensions = await this.getImageDimensions(imageData);
+        if (generation !== this.mergeGeneration) {
+          return false;
+        }
         const imgAspectRatio = dimensions.width / dimensions.height;
         const pageAspectRatio = maxWidth / maxHeight;
 
@@ -330,6 +340,9 @@ export class NgxFileUploaderComponent implements ControlValueAccessor, OnInit, O
       this.pdfCreated = true;
       return true;
     } catch {
+      if (generation !== this.mergeGeneration) {
+        return false;
+      }
       this.message = 'The selected images could not be merged. Please try different files.';
       this.notificationKind = 'danger';
       this.messageViewTimeout();
