@@ -3,6 +3,9 @@
   "version": "20.1.0",
   "main": "ngx-file-uploader/dist/ngx-file-uploader",
   "license": "MPL-2.0",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
@@ -11,7 +14,12 @@
     "test": "ng test --browsers=ChromeHeadless --watch=false",
     "lint": "ng lint",
     "prettier": "prettier --write \"**/**/*.{css,html,ts}\"",
-    "prepare": "husky"
+    "prepare": "husky",
+    "verify": "turbo run lint test --color",
+    "ci:version-next": "npm version \"$PRERELEASE_VERSION\" --no-git-tag-version && npm version \"$PRERELEASE_VERSION\" --no-git-tag-version --prefix projects/ngx-file-uploader",
+    "ci:version": "npm version \"$RELEASE_VERSION\" --no-git-tag-version && npm version \"$RELEASE_VERSION\" --no-git-tag-version --prefix projects/ngx-file-uploader",
+    "ci:publish-next": "cd dist/ngx-file-uploader && npm publish --tag next --access public",
+    "ci:publish": "cd dist/ngx-file-uploader && npm publish --tag latest --access public"
   },
   "dependencies": {
     "@angular/animations": "^20.0.2",
